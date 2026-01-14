@@ -2,10 +2,23 @@
 ini_set('display_errors', 1);
 
 //require_once 'settings.php';
-use PEAR2\Net\RouterOS;
-require_once 'PEAR2/Autoload.php';
 require_once 'config.php';
-$util = new RouterOS\Util($client = new RouterOS\Client("$host", "$user", "$pass"));
+
+// Initialize router connection (mock or real)
+if (defined('MOCK_MODE') && MOCK_MODE === true) {
+	require_once 'mock_router.php';
+	$util = new MockRouterUtil();
+	$client = new MockClient();
+} else {
+	// Use modern RouterOS API library (works with RouterOS 6.43+ and 7.x)
+	require_once 'routeros_api.php';
+	$connection = createRouterConnection($host, $user, $pass);
+	if (!$connection['success']) {
+		die("Router connection failed: " . $connection['error']);
+	}
+	$util = $connection['util'];
+	$client = $connection['client'];
+}
 
 if (isset($_GET['no_of_users'])) $no_of_users = $_GET['no_of_users'];
 if (isset($_GET['pass_length'])) $passLength = $_GET['pass_length'];
@@ -50,19 +63,28 @@ $passAlphabetLimit = strlen($passAlphabet)-1;
 	
 if($_SESSION['user_level'] >= 1 and $_SESSION['user_level'] <= 3) {
 	include('dbconfig.php');
+	require_once 'pricing_config.php';
+	
 	$stmt = $DB_con->prepare("SELECT booking_id from hotspot_vouchers ORDER BY booking_id DESC LIMIT 1");
 	$stmt->execute(array());
 	$row = $stmt->fetch(PDO::FETCH_ASSOC);
-	$booking_id = $row['booking_id'];
+	$booking_id = ($row && isset($row['booking_id'])) ? $row['booking_id'] : 0;
 	$booking_id++;
 	
-	$stmt = $DB_con->prepare("UPDATE hotspot_vouchers set status=:status WHERE 1");
-	$stmt->execute(array(':status' => 'Over'));
+	// Generate batch ID based on uptime limit and timestamp
+	$batch_id = strtoupper($limit_uptime) . '-' . date('mdHi');
+	
+	// Get price and expiry date from config
+	$price = getVoucherPrice($limit_uptime);
+	$expires_on = getExpiryDate();
+	
+	// NOTE: Removed the UPDATE that marked all previous vouchers as 'Over'
+	// Now each batch stays 'Active' until manually changed
 
 	$stmt = $DB_con->prepare("insert into hotspot_vouchers (created_on, created_by, creator, user_name, password, printed_times,
-		printed_last, status, group_of, booking_id, limit_uptime, limit_bytes, profile, uid)
+		printed_last, status, group_of, booking_id, limit_uptime, limit_bytes, profile, uid, batch_id, price, expires_on)
 		values(NOW(), :created_by, :creator,  :user_name, :password, :printed_times, :printed_last, :status, :group_of, 
-		:booking_id, :limit_uptime, :limit_bytes, :profile, :uid)");
+		:booking_id, :limit_uptime, :limit_bytes, :profile, :uid, :batch_id, :price, :expires_on)");
 		
 	$k = 1;
 	for($i=0; $i < $no_of_users; $i++){
@@ -86,14 +108,15 @@ if($_SESSION['user_level'] >= 1 and $_SESSION['user_level'] <= 3) {
 		if ($same_pass == 2) {	$pass_word = $pass; } else { $pass_word = $user_name; }
 		
 		$util->setMenu('/ip hotspot user');
-		$iv = count($util);
+		$existingUsers = $util->getAll();
+		$iv = count($existingUsers);
 		
 		if (intval($limit_bytes) != 0) {
 			$limit_bytes_total = (intval($limit_bytes) * 1024 * 1024 * 1024 );
 			$util->add(
 				array(
-					'name' => "$username",
-					'password' => "$password",
+					'name' => "$user_name",
+					'password' => "$pass_word",
 					'disabled' => "no",
 					'limit-uptime' => "$limit_uptime",
 					'limit-bytes-total' => "$limit_bytes_total",
@@ -106,8 +129,8 @@ if($_SESSION['user_level'] >= 1 and $_SESSION['user_level'] <= 3) {
 			{
 			$util->add(
 				array(
-					'name' => "$username",
-					'password' => "$password",
+					'name' => "$user_name",
+					'password' => "$pass_word",
 					'disabled' => "no",
 					'limit-uptime' => "$limit_uptime",
 					'profile' => "$profile",
@@ -117,17 +140,26 @@ if($_SESSION['user_level'] >= 1 and $_SESSION['user_level'] <= 3) {
 			$limit_bytes = 0; // For Adding it to Local database
 		}	
 
-		if ($iv != count($util)) {
+		$updatedUsers = $util->getAll();
+		if ($iv != count($updatedUsers)) {
 			$uid = $booking_id.'-'.$k.'-'.$no_of_users.date('dmY');
 			//$creator = $_SESSION['username'].'['.$_SESSION['id'].']';
 			$stmt->execute(array(':created_by' => $_SESSION['username'], ':creator' => $_SESSION['id'], ':user_name' => $user_name, ':password' => $pass_word,
 				':printed_times' => 0, ':printed_last' => '', ':status' => 'Active', ':group_of' => $no_of_users,
 				':booking_id' => $booking_id, ':limit_uptime' => $limit_uptime, ':limit_bytes' => $limit_bytes,
-				':profile' => $profile, ':uid' => $uid));			
+				':profile' => $profile, ':uid' => $uid, ':batch_id' => $batch_id, ':price' => $price, ':expires_on' => $expires_on));			
 			$k++;	
 		} 	
 	}
-	echo $k - 1; //Successful
+	
+	// Log the voucher creation
+	$created = $k - 1;
+	if ($created > 0) {
+		require_once 'audit_log.php';
+		auditLog('voucher_create', "Created batch $batch_id with $created vouchers ($limit_uptime)");
+	}
+	
+	echo $created; //Successful
 }
 else
 	{

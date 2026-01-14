@@ -1,7 +1,13 @@
 <?php
 session_start();
+
+// Log logout before destroying session
+if (isset($_SESSION['username'])) {
+    require_once 'audit_log.php';
+    auditLog('logout', 'User logged out');
+}
+
 session_unset(); 
 session_destroy();
-//echo '<script>window.open("backup.php", "_self").close(); top.close(); window.open("backup.php", "_self", ""); window.close();</script>';
 header('location:index.php');
 ?>

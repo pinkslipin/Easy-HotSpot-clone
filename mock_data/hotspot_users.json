@@ -1,0 +1,50 @@
+{
+    "users": [],
+    "profiles": [
+        {
+            "name": "default",
+            "rate-limit": "1M/1M",
+            "shared-users": "1",
+            ".id": "*1"
+        },
+        {
+            "name": "2Mbps",
+            "rate-limit": "2M/2M",
+            "shared-users": "1",
+            ".id": "*2"
+        },
+        {
+            "name": "5Mbps",
+            "rate-limit": "5M/5M",
+            "shared-users": "1",
+            ".id": "*3"
+        },
+        {
+            "name": "10Mbps",
+            "rate-limit": "10M/10M",
+            "shared-users": "1",
+            ".id": "*4"
+        },
+        {
+            "name": "1hour-2Mbps",
+            "rate-limit": "2M/2M",
+            "shared-users": "1",
+            ".id": "*5",
+            "comment": "1 Hour package at 2Mbps"
+        },
+        {
+            "name": "1day-5Mbps",
+            "rate-limit": "5M/5M",
+            "shared-users": "1",
+            ".id": "*6",
+            "comment": "Full day package at 5Mbps"
+        }
+    ],
+    "active": [],
+    "log": [
+        {
+            "time": "Jan/09/2026 10:00:00",
+            "message": "Mock router initialized"
+        }
+    ]
+}

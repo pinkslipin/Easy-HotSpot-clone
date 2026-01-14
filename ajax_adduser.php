@@ -1,10 +1,17 @@
 <?php
 //require_once 'settings.php';
 
-use PEAR2\Net\RouterOS;
-require_once 'PEAR2/Autoload.php';
 require_once 'config.php';
-$util = new RouterOS\Util($client = new RouterOS\Client("$host", "$user", "$pass"));
+
+// Initialize router connection (mock or real)
+if (defined('MOCK_MODE') && MOCK_MODE === true) {
+	require_once 'mock_router.php';
+	$util = new MockRouterUtil();
+	$client = new MockClient();
+} else {
+	require_once 'PEAR2/Autoload.php';
+	$util = new PEAR2\Net\RouterOS\Util($client = new PEAR2\Net\RouterOS\Client("$host", "$user", "$pass"));
+}
 
 if (isset($_GET['name'])) $username = $_GET['name'];
 if (isset($_GET['psd'])) $password = $_GET['psd'];
@@ -48,23 +55,33 @@ if ((!empty($username)) and (!empty($password)) and (!empty($profile))) {
 
 	if ($iv != count($util)) {
 		include('dbconfig.php');
+		require_once 'pricing_config.php';
+		
 		$stmt = $DB_con->prepare("SELECT booking_id from hotspot_vouchers ORDER BY booking_id DESC LIMIT 1");
 		$stmt->execute(array());
 		$row = $stmt->fetch(PDO::FETCH_ASSOC);
 		$booking_id = $row['booking_id'];
 		$booking_id++;
 		$uid = $booking_id.'-1-'.date('dmY');
-		//$creator = $_SESSION['username'].'['.$_SESSION['id'].']';
-		$stmt = $DB_con->prepare("UPDATE hotspot_vouchers set status=:status WHERE 1");
-		$stmt->execute(array(':status' => 'Over'));
-			$stmt = $DB_con->prepare("insert into hotspot_vouchers (created_on, created_by, creator, user_name, password, printed_times,
-			printed_last, status, group_of, booking_id, limit_uptime, limit_bytes, profile, uid)
+		
+		// Generate batch ID based on uptime limit and timestamp
+		$batch_id = strtoupper($limit_uptime) . '-' . date('mdHi');
+		
+		// Get price and expiry date from config
+		$price = getVoucherPrice($limit_uptime);
+		$expires_on = getExpiryDate();
+		
+		// NOTE: Removed the UPDATE that marked all previous vouchers as 'Over'
+		// Now each batch stays 'Active' until manually changed
+		
+		$stmt = $DB_con->prepare("insert into hotspot_vouchers (created_on, created_by, creator, user_name, password, printed_times,
+			printed_last, status, group_of, booking_id, limit_uptime, limit_bytes, profile, uid, batch_id, price, expires_on)
 			values(NOW(), :created_by, :creator, :user_name, :password, :printed_times, :printed_last, :status, :group_of, 
-			:booking_id, :limit_uptime, :limit_bytes, :profile, :uid)");
+			:booking_id, :limit_uptime, :limit_bytes, :profile, :uid, :batch_id, :price, :expires_on)");
 		$stmt->execute(array(':created_by' => $_SESSION['username'], ':creator' => $_SESSION['id'], ':user_name' => $username, ':password' => $password,
 			':printed_times' => 0, ':printed_last' => '', ':status' => 'Active', ':group_of' => 1,
 			':booking_id' => $booking_id, ':limit_uptime' => $limit_uptime, ':limit_bytes' => $limit_bytes,
-			':profile' => $profile, ':uid' => $uid));	
+			':profile' => $profile, ':uid' => $uid, ':batch_id' => $batch_id, ':price' => $price, ':expires_on' => $expires_on));	
 			
 		// here starts Echo String
 		$echo_text ='			
@@ -92,11 +109,11 @@ if ((!empty($username)) and (!empty($password)) and (!empty($profile))) {
 												</tr>
 												<tr>';
 												if (intval($limit_bytes) != 0) {
-													$echo_text .= '<td colspan="5">Validity : '.$limit_uptime.'ays; Counts from First login;  Data usage Maximum : '.$limit_bytes_total.' Bytes; Bandwidth : '.$profile.'; HAPPY BROWSING...</td>';
+													$echo_text .= '<td colspan="5">Validity : '.$limit_uptime.'; Counts from First login;  Data usage Maximum : '.$limit_bytes_total.' Bytes; Bandwidth : '.$profile.'; HAPPY BROWSING...</td>';
 													}
 												else
 													{
-													$echo_text .= '<td colspan="5">Validity : '.$limit_uptime.'ays; Counts from First login; Bandwidth/Profile : '.$profile.'; HAPPY BROWSING...</td>';
+													$echo_text .= '<td colspan="5">Validity : '.$limit_uptime.'; Counts from First login; Bandwidth/Profile : '.$profile.'; HAPPY BROWSING...</td>';
 													}
 												$echo_text .= '
 												</tr>

@@ -1,18 +1,26 @@
 <?php
-use PEAR2\Net\RouterOS;
-require_once 'PEAR2/Autoload.php';
 require_once 'config.php';
-$util = new RouterOS\Util($client = new RouterOS\Client("$host", "$user", "$pass"));
 if ( !isset($_SESSION) ) session_start();
 
-$guest_name=trim($_GET['username']);
+$guest_name = trim($_GET['username']);
 
-$printRequest = new RouterOS\Request('/ip/hotspot/user/print');
-$printRequest->setArgument('.proplist', '.id,name');
-$printRequest->setQuery(RouterOS\Query::where('name', $guest_name));
-$id = $client->sendSync($printRequest)->getProperty('.id');
+// Log single user deletion
+require_once 'audit_log.php';
+auditLog('user_delete', "Deleted single user: $guest_name");
 
-$removeRequest = new RouterOS\Request('/ip/hotspot/user/remove');
-$removeRequest->setArgument('numbers', $id);
-$client->sendSync($removeRequest);
+if (defined('MOCK_MODE') && MOCK_MODE === true) {
+    // Mock mode - remove from local JSON storage
+    require_once 'mock_router.php';
+    $mockUtil = new MockRouterUtil();
+    $mockUtil->removeUser($guest_name);
+} else {
+    // Real router mode - using modern library (RouterOS 6.43+/7.x compatible)
+    require_once 'routeros_api.php';
+    $connection = createRouterConnection($host, $user, $pass);
+    if ($connection['success']) {
+        $util = $connection['util'];
+        $util->setMenu('/ip/hotspot/user');
+        $util->removeUser($guest_name);
+    }
+}
 ?>

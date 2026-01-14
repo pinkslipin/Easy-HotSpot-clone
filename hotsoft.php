@@ -1,8 +1,21 @@
 <?php
-use PEAR2\Net\RouterOS;
-require_once 'PEAR2/Autoload.php';
+/**
+ * Hotsoft API Endpoint
+ * External integration for check-in/check-out operations
+ * 
+ * UPDATED: Now uses modern RouterOS API library (RouterOS 6.43+/7.x compatible)
+ */
 require_once 'config.php';
-$util = new RouterOS\Util($client = new RouterOS\Client("$host", "$user", "$pass"));
+require_once 'routeros_api.php';
+
+// Create router connection
+$connection = createRouterConnection($host, $user, $pass);
+if (!$connection['success']) {
+    echo 5; // Connection failed
+    exit;
+}
+$util = $connection['util'];
+$client = $connection['client'];
 
 if (isset($_GET['action'])) { $action = $_GET['action']; } else { $action = 'checkout'; }
 if (isset($_GET['username'])) $username = $_GET['username'];
@@ -35,8 +48,8 @@ if (strtolower($action) == 'checkin')) {
 		if (isset($_GET['limit_bytes'])) $limit_bytes = $_GET['limit_bytes'];
 		if (isset($_GET['profile'])) { $profile = $_GET['profile']; } else { $profile = 'default'; } 
 	
-		$util->setMenu('/ip hotspot user');
-		$iv = count($util);
+		$util->setMenu('/ip/hotspot/user');
+		$iv = $util->count();
 
 		if ((intval($limit_bytes) != 0) and (!empty($limit_uptime))) {
 			$limit_bytes_total = (intval($limit_bytes) * 1024 * 1024 * 1024 );
@@ -74,7 +87,7 @@ if (strtolower($action) == 'checkin')) {
 			$limit_bytes = 0; // For Adding it to Local database
 		}		
 
-		if ($iv != count($util)) {
+		if ($iv != $util->count()) {
 			include('dbconfig.php');
 			$stmt = $DB_con->prepare("SELECT booking_id from hotspot_vouchers ORDER BY booking_id DESC LIMIT 1");
 			$stmt->execute(array());
@@ -111,15 +124,13 @@ elseif (strtolower($action) == 'checkout'))  {
 	//Removal
 	$username=trim($_GET['username']);
 	if (!empty($username)) {
-		$printRequest = new RouterOS\Request('/ip/hotspot/user/print');
-		$printRequest->setArgument('.proplist', '.id,name');
-		$printRequest->setQuery(RouterOS\Query::where('name', $username));
-		$id = $client->sendSync($printRequest)->getProperty('.id');
-
-		$removeRequest = new RouterOS\Request('/ip/hotspot/user/remove');
-		$removeRequest->setArgument('numbers', $id);
-		$client->sendSync($removeRequest);
-		echo 0; //Success
+		// Use modern API to remove user
+		$util->setMenu('/ip/hotspot/user');
+		if ($util->removeUser($username)) {
+			echo 0; //Success
+		} else {
+			echo 4; // User not found or removal failed
+		}
 	}
 	else
 		{

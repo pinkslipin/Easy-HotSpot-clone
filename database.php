@@ -46,9 +46,20 @@ $stmt = $DB_con->prepare("CREATE TABLE IF NOT EXISTS `hotspot_vouchers` (
   `limit_uptime` varchar(30) DEFAULT NULL,
   `limit_bytes` varchar(30) DEFAULT NULL,
   `profile` varchar(30) DEFAULT NULL,
-  `uid` VARCHAR(30) NOT NULL
+  `uid` VARCHAR(30) NOT NULL,
+  `batch_id` VARCHAR(50) DEFAULT NULL,
+  `price` DECIMAL(10,2) DEFAULT 0.00,
+  `expires_on` datetime DEFAULT NULL
 ) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8");
 $stmt->execute(array());
+
+-- Add new columns if they dont exist (for existing databases)
+$stmt = $DB_con->prepare("ALTER TABLE `hotspot_vouchers` ADD COLUMN IF NOT EXISTS `batch_id` VARCHAR(50) DEFAULT NULL");
+try { $stmt->execute(array()); } catch (Exception $e) { /* Column may already exist */ }
+$stmt = $DB_con->prepare("ALTER TABLE `hotspot_vouchers` ADD COLUMN IF NOT EXISTS `price` DECIMAL(10,2) DEFAULT 0.00");
+try { $stmt->execute(array()); } catch (Exception $e) { /* Column may already exist */ }
+$stmt = $DB_con->prepare("ALTER TABLE `hotspot_vouchers` ADD COLUMN IF NOT EXISTS `expires_on` DATETIME DEFAULT NULL");
+try { $stmt->execute(array()); } catch (Exception $e) { /* Column may already exist */ }
 
 $stmt = $DB_con->prepare("ALTER TABLE `hotspot_vouchers`
   ADD PRIMARY KEY (`id`)");

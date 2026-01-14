@@ -1,119 +1,252 @@
+<?php require_once 'pricing_config.php'; ?>
+<style>
+/* Clean Dashboard Styles */
+.dashboard-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px;
+    border-radius: 15px;
+    margin-bottom: 25px;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+.dashboard-header h1 {
+    margin: 0 0 5px 0;
+    font-size: 28px;
+    font-weight: 700;
+}
+.dashboard-header p {
+    margin: 0;
+    opacity: 0.9;
+    font-size: 14px;
+}
+.header-actions {
+    margin-top: 15px;
+}
+.header-actions .btn {
+    margin: 3px;
+    border-radius: 20px;
+    padding: 8px 18px;
+    font-weight: 600;
+    border: 2px solid rgba(255,255,255,0.3);
+    background: rgba(255,255,255,0.15);
+    color: white;
+}
+.header-actions .btn:hover {
+    background: rgba(255,255,255,0.25);
+    color: white;
+}
+.header-actions .btn-logout {
+    background: rgba(255,67,46,0.8);
+    border-color: rgba(255,67,46,0.5);
+}
+
+.action-card {
+    background: white;
+    border-radius: 15px;
+    padding: 25px;
+    margin-bottom: 20px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+    transition: all 0.3s ease;
+}
+.action-card:hover {
+    box-shadow: 0 5px 20px rgba(0,0,0,0.12);
+}
+.action-card h4 {
+    color: #333;
+    font-weight: 700;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #f0f0f0;
+    font-size: 16px;
+}
+.action-card h4 i {
+    margin-right: 10px;
+    opacity: 0.7;
+}
+
+.action-btn {
+    display: inline-block;
+    padding: 12px 20px;
+    margin: 5px;
+    border-radius: 10px;
+    color: white;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 13px;
+    transition: all 0.3s ease;
+    border: none;
+    cursor: pointer;
+}
+.action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    color: white;
+    text-decoration: none;
+}
+.action-btn i {
+    margin-right: 8px;
+}
+
+.btn-blue { background: linear-gradient(135deg, #28ABE3, #1a8fc2); }
+.btn-green { background: linear-gradient(135deg, #72bf48, #5da03a); }
+.btn-red { background: linear-gradient(135deg, #FF432E, #d63520); }
+.btn-purple { background: linear-gradient(135deg, #800080, #660066); }
+.btn-orange { background: linear-gradient(135deg, #FF6B35, #e55a2b); }
+.btn-gold { background: linear-gradient(135deg, #FFD700, #e6c200); color: #333 !important; }
+.btn-navy { background: linear-gradient(135deg, #000080, #000066); }
+.btn-teal { background: linear-gradient(135deg, #20c997, #1aa179); }
+
+.quick-stats {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+.stat-box {
+    flex: 1;
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+}
+.stat-box .stat-number {
+    font-size: 32px;
+    font-weight: 700;
+    color: #667eea;
+}
+.stat-box .stat-label {
+    font-size: 12px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+@media (max-width: 768px) {
+    .quick-stats { flex-direction: column; }
+    .action-btn { display: block; margin: 8px 0; }
+}
+</style>
 <body>
-	<div class="container">
+	<div class="container" style="padding-top: 30px;">
 	<div class="no_print">
-        <!-- Start Logo Section -->
-        <section id="logo-section" class="text-center">
-            <div class="container">
-                <div class="row">
-                    <div class="col-md-12">
-                        <div class="logo text-center">
-                            <h1>Easy HotSpot</h1>
-                            <span style="color:#333333;font-size:20px;font-weight:bold">WiFi Hotspot User Management Utility</span>
-							<span style="color:#888888;font-size:20px;font-weight:bold">By Team Zetozone, Ph:+91 9020 150 150</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-        <!-- End Logo Section -->
-		
-		<!-- Start Main Body Section -->
-        <div class="mainbody-section text-center">
-            <div class="container">
-                <div class="row">
-                    <div class="col-md-2">
-                        <div class="menu-item blue">
-                            <a href="#single-user" data-toggle="modal">
-                                <i class="fa fa-child"></i>
-                                <p>Add Single User</p>
-                            </a>
-                        </div>
-						<div class="menu-item red">
-                            <a href="#multi-user" data-toggle="modal">
-                                <i class="fa fa-users"></i>
-                                <p>Add Multiple Users</p>
-                            </a>
-                        </div>
-                    </div>
-                    <div class="col-md-2">
-                        <div class="menu-item skyblue">
-                            <a href="#active-users" data-toggle="modal">
-                                <i class="fa fa-signal"></i>
-                                <p>List Active Users</p>
-                            </a>
-                        </div>
-                        <div class="menu-item purple">
-                            <a href="#remove-selected" data-toggle="modal">
-                                <i class="fa fa-ban"></i>
-                                <p>Remove Selected Users</p>
-                            </a>
-                        </div>
-
-                    </div>
-                    <div class="col-md-2">
-                        <div class="menu-item coral">
-                            <a href="#server-log" data-toggle="modal">
-                                <i class="fa fa-paw"></i>
-                                <p>Server Log</p>
-                            </a>
-                        </div>
-                        <div class="menu-item navy">
-                            <a href="voucher.php">
-                                <i class="fa fa-bars"></i>
-                                <p>Voucher Printing</p>
-                            </a>
-                        </div>
-
-                    </div>
-					<div class="col-md-2">
-                        <div class="menu-item fuchsia">
-                            <a href="#remove-uninitiated" data-toggle="modal">
-                                <i class="fa fa-gears"></i>
-                                <p>Remove Un-Initiated</p>
-                            </a>
-                        </div>
-                        <div class="menu-item gold">
-                            <a href="#profiler" data-toggle="modal">
-                                <i class="fa fa-user"></i>
-                                <p>HotSpot User Profiles</p>
-                            </a>
-                        </div>
-                    </div>
-					<div class="col-md-2">
-                        <div class="menu-item olive">
-							<a href="#remove-expired" data-toggle="modal">
-                                <i class="fa fa-bug"></i>
-                                <p>Remove All Expired</p>
-                            </a>
-                        </div>					
-                        <div class="menu-item purple">
-                            <a href="#system-user" data-toggle="modal">
-                                <i class="fa fa-user-md"></i>
-                                <p>System Users</p>
-                            </a>
-                        </div>
-					</div>	
-					<div class="col-md-2">						
-                        <div class="menu-item green">
-                            <a href="#list-users" data-toggle="modal">
-                                <i class="fa fa-ambulance"></i>
-                                <p>List Inactive Users</p>
-                            </a>
-                        </div>						
-                        <div class="menu-item blue">
-							<a href="index.php" >
-                                <i class="fa fa-refresh fa-spin fa-3x fa-fw"></i>
-                                <p>Refresh</p>
-                            </a>
-                        </div>
-                    </div>
-                </div>
-				<input type="button" style="background-color: #f0ff0a;" onclick="log_out()" value="<?php echo 'Logout ('.$_SESSION['username'].')'; ?>"/>
+        
+        <!-- Dashboard Header -->
+        <div class="dashboard-header text-center">
+            <h1><i class="fa fa-wifi"></i> Easy HotSpot</h1>
+            <p>WiFi Hotspot Voucher Management System</p>
+            <div class="header-actions">
+                <a href="dashboard.php" class="btn"><i class="fa fa-line-chart"></i> Dashboard</a>
+                <a href="voucher.php" class="btn"><i class="fa fa-print"></i> Print Vouchers</a>
+                <a href="portal.php" class="btn"><i class="fa fa-paint-brush"></i> Customize Portal</a>
+                <button onclick="log_out()" class="btn btn-logout"><i class="fa fa-sign-out"></i> Logout (<?php echo $_SESSION['username']; ?>)</button>
             </div>
         </div>
+		
+        <!-- Quick Stats Row -->
+        <?php
+        require_once 'expiry_check.php';
+        $stats = getVoucherStats();
+        ?>
+        <div class="quick-stats">
+            <div class="stat-box">
+                <div class="stat-number"><?php echo $stats['active']; ?></div>
+                <div class="stat-label">Active Vouchers</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number" style="color: #72bf48;"><?php echo $stats['used']; ?></div>
+                <div class="stat-label">Used (Sold)</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number" style="color: #FF432E;"><?php echo $stats['expired']; ?></div>
+                <div class="stat-label">Expired</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number" style="color: #FFD700;"><?php echo formatPrice($stats['total_revenue']); ?></div>
+                <div class="stat-label">Total Revenue</div>
+            </div>
+        </div>
+
+        <!-- Main Action Cards -->
+        <div class="row">
+            <!-- Voucher Management -->
+            <div class="col-md-6">
+                <div class="action-card">
+                    <h4><i class="fa fa-ticket"></i> Voucher Management</h4>
+                    <a href="#single-user" data-toggle="modal" class="action-btn btn-blue">
+                        <i class="fa fa-user-plus"></i> Create Single
+                    </a>
+                    <a href="#multi-user" data-toggle="modal" class="action-btn btn-green">
+                        <i class="fa fa-users"></i> Create Batch
+                    </a>
+                    <a href="voucher.php" class="action-btn btn-purple">
+                        <i class="fa fa-print"></i> Print Vouchers
+                    </a>
+                    <a href="#batch-manager" data-toggle="modal" class="action-btn btn-navy">
+                        <i class="fa fa-th-list"></i> Manage Batches
+                    </a>
+                </div>
+            </div>
+            
+            <!-- User Monitoring -->
+            <div class="col-md-6">
+                <div class="action-card">
+                    <h4><i class="fa fa-users"></i> User Monitoring</h4>
+                    <a href="#active-users" data-toggle="modal" class="action-btn btn-teal">
+                        <i class="fa fa-wifi"></i> Active Now
+                    </a>
+                    <a href="#list-users" data-toggle="modal" class="action-btn btn-blue">
+                        <i class="fa fa-list"></i> All Users
+                    </a>
+                    <a href="#remove-expired" data-toggle="modal" class="action-btn btn-orange">
+                        <i class="fa fa-calendar-times-o"></i> Expired
+                    </a>
+                    <a href="#remove-selected" data-toggle="modal" class="action-btn btn-red">
+                        <i class="fa fa-trash"></i> Remove Users
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <!-- System & Settings -->
+            <div class="col-md-6">
+                <div class="action-card">
+                    <h4><i class="fa fa-cogs"></i> System & Settings</h4>
+                    <a href="#profiler" data-toggle="modal" class="action-btn btn-gold">
+                        <i class="fa fa-sliders"></i> Bandwidth Profiles
+                    </a>
+                    <a href="#system-user" data-toggle="modal" class="action-btn btn-purple">
+                        <i class="fa fa-user-secret"></i> System Users
+                    </a>
+                    <a href="#server-log" data-toggle="modal" class="action-btn btn-navy">
+                        <i class="fa fa-list-alt"></i> Server Logs
+                    </a>
+                    <a href="index.php" class="action-btn btn-blue">
+                        <i class="fa fa-refresh"></i> Refresh
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Quick Links -->
+            <div class="col-md-6">
+                <div class="action-card">
+                    <h4><i class="fa fa-star"></i> Quick Links</h4>
+                    <a href="dashboard.php" class="action-btn btn-green">
+                        <i class="fa fa-line-chart"></i> Sales Dashboard
+                    </a>
+                    <a href="portal.php" class="action-btn btn-teal">
+                        <i class="fa fa-paint-brush"></i> Captive Portal
+                    </a>
+                    <a href="#remove-uninitiated" data-toggle="modal" class="action-btn btn-orange">
+                        <i class="fa fa-clock-o"></i> Unused Vouchers
+                    </a>
+                </div>
+            </div>
+        </div>
+        
 	</div>	
 	
-        <!-- End Main Body Section -->
+    <!-- End Main Body Section -->
 
 		<!-- 1. End Single Guest User Creation Experiment Section -->
 		<div class="child-modal modal fade" id="single-user" tabindex="-1" role="dialog" aria-hidden="true">
@@ -146,17 +279,15 @@
 													</div>
 												</div>
 												<div class="col-sm-4">						
-													<label class="col-sm-6 control-label" >Uptime Limit(wdhms format)</label>
+													<label class="col-sm-6 control-label" >Validity Period</label>
 													<div class="col-sm-6">
-														<input type="text" placeholder="10m" title="eg.5h30m [w(Weeks) d(days) h(hours) m(minutes) s(seconds) format]" name="slimit_uptime" id="slimit_uptime" >
-													<!--	<select class="myCombo" id="slimit_uptime" name="slimit_uptime">
-															<option value="2d">2 Days</option>									
-															<option value="1d">1 Day</option>
-															<option value="2d">2 Days</option>
-															<option value="3d">3 Days</option>
-															<option value="4d">4 Days</option>
-															<option value="5d">5 Days</option>
-														</select> -->
+														<select class="myCombo" id="slimit_uptime" name="slimit_uptime" required>
+															<?php foreach ($VOUCHER_PRICES as $time => $price): ?>
+																<option value="<?php echo $time; ?>" <?php echo $time === '1h' ? 'selected' : ''; ?>>
+																	<?php echo getUptimeName($time) . ' - ' . formatPrice($price); ?>
+																</option>
+															<?php endforeach; ?>
+														</select>
 													</div>
 												</div>
 											</div>	
@@ -251,18 +382,15 @@
 											</div>	
 											<div class="form-group form-group-sm">
 												<div class="col-sm-4">
-													<label class="col-sm-6 control-label" for="limit_uptime">Uptime Limit(wdhms format)</label>
+													<label class="col-sm-6 control-label" for="limit_uptime">Validity Period</label>
 													<div class="col-sm-6">
-														<input type="text" placeholder="1d1h" title="eg.5h30m [w(Weeks) d(days) h(hours) m(minutes) s(seconds) format]" name="limit_uptime" id="limit_uptime" >
-														<!--<input type="number" placeholder="No of days" name="limit_uptime" id="limit_uptime" min="1" value="2" required >
-														<select class="myCombo" id="limit_uptime" name="limit_uptime">
-															<option value="2d">2 Days</option>									
-															<option value="1d">1 Day</option>
-															<option value="2d">2 Days</option>
-															<option value="3d">3 Days</option>
-															<option value="4d">4 Days</option>
-															<option value="5d">5 Days</option>
-														</select> -->
+														<select class="myCombo" id="limit_uptime" name="limit_uptime" required>
+															<?php foreach ($VOUCHER_PRICES as $time => $price): ?>
+																<option value="<?php echo $time; ?>" <?php echo $time === '1h' ? 'selected' : ''; ?>>
+																	<?php echo getUptimeName($time) . ' - ' . formatPrice($price); ?>
+																</option>
+															<?php endforeach; ?>
+														</select>
 													</div>
 												</div>
 												<div class="col-sm-4">						
@@ -601,34 +729,49 @@
 								<?php
 								try
 									{
-									//use PEAR2\Net\RouterOS;
-									require_once 'PEAR2/Autoload.php';
 									require_once 'config.php';
-									$util = new RouterOS\Util($client = new RouterOS\Client("$host", "$user", "$pass"));
-									//$client = new RouterOS\Client("$host", "$user", "$pass");
-									$printRequest = new RouterOS\Request('/ip hotspot user print');
-									$printRequest->setArgument('.proplist','.id,server,name,profile,limit-uptime,limit-bytes-total,uptime,bytes-in,bytes-out');
-									$printRequest->setQuery(RouterOS\Query::where('.id','*0', RouterOS\Query::OP_EQ) ->not()); 
-
-									$idList = '';
-									$i = 0;
-									foreach ($client->sendSync($printRequest)->getAllOfType(RouterOS\Response::TYPE_DATA) as $item) {
-										if (!empty($item->getProperty('limit-uptime'))) {
-											if (!($item->getProperty('uptime') < $item->getProperty('limit-uptime'))) {
-												$i++;
-												echo '<tr>';
-													echo '<td>'.$i.'</td>';
-													echo '<td>', $item->getProperty('server'),'</td>';
-													echo '<td>', $item->getProperty('name'), '</td>';
-													echo '<td>', $item->getProperty('profile'), '</td>';
-													echo '<td>', $item->getProperty('limit-uptime'), '</td>';
-													echo '<td>', $item->getProperty('uptime'),'</td>';
-													echo '<td>', $item->getProperty('limit-bytes-total'), '</td>';
-													echo '<td>', $item->getProperty('bytes-in'), '</td>';
-													echo '<td>', $item->getProperty('bytes-out'), '</td>';
-												echo '</tr>';
+									
+									if (defined('MOCK_MODE') && MOCK_MODE === true) {
+										// Mock mode - no real expired users to show
+										require_once 'mock_router.php';
+										echo '<tr><td colspan="9" class="text-center">Mock mode: No expired users tracking available</td></tr>';
+									} else {
+										// Real router mode - using modern library
+										require_once 'routeros_api.php';
+										$connection = createRouterConnection($host, $user, $pass);
+										
+										if ($connection['success']) {
+											$util = $connection['util'];
+											$util->setMenu('/ip/hotspot/user');
+											$items = $util->getAll('.id,server,name,profile,limit-uptime,limit-bytes-total,uptime,bytes-in,bytes-out');
+											
+											$i = 0;
+											foreach ($items as $item) {
+												$limitUptime = $item->getProperty('limit-uptime');
+												$uptime = $item->getProperty('uptime');
+												
+												if (!empty($limitUptime) && $uptime >= $limitUptime) {
+													$i++;
+													echo '<tr>';
+														echo '<td>'.$i.'</td>';
+														echo '<td>', $item->getProperty('server'),'</td>';
+														echo '<td>', $item->getProperty('name'), '</td>';
+														echo '<td>', $item->getProperty('profile'), '</td>';
+														echo '<td>', $item->getProperty('limit-uptime'), '</td>';
+														echo '<td>', $item->getProperty('uptime'),'</td>';
+														echo '<td>', $item->getProperty('limit-bytes-total'), '</td>';
+														echo '<td>', $item->getProperty('bytes-in'), '</td>';
+														echo '<td>', $item->getProperty('bytes-out'), '</td>';
+													echo '</tr>';
+												}
 											}
-										}	
+											
+											if ($i === 0) {
+												echo '<tr><td colspan="9" class="text-center">No expired users found</td></tr>';
+											}
+										} else {
+											echo '<tr><td colspan="9" class="text-center">Router connection failed: ' . htmlspecialchars($connection['error']) . '</td></tr>';
+										}
 									}
 								}
 								catch (Exception $e) {
@@ -658,40 +801,52 @@
                 </div>
                 <div class="container">
                     <div class="row">
-						<div class="col-sm-2 col-sm-offset-5">
-							<button data-dismiss="modal" class="btn btn-info center-element" ><i class="icon-save icon-large"></i>&nbsp;BACK</button>
+						<div class="col-sm-4 col-sm-offset-4 text-center" style="margin-bottom: 15px;">
+							<button data-dismiss="modal" class="btn btn-info"><i class="fa fa-arrow-left"></i>&nbsp;BACK</button>
+							<?php if($_SESSION['user_level'] == 1): ?>
+							<button onclick="clearServerLogs();" class="btn btn-danger"><i class="fa fa-trash"></i>&nbsp;Clear Logs</button>
+							<?php endif; ?>
 						</div>
 						<div class="col-sm-12 col-md-12 thumbnail" style="box-shadow: 10px 10px 5px #888888;">
 							<table cellpadding="0" cellspacing="0" border="0" class="table table-bordered" id="table-01">
 								<div class="alert alert-info">
-									<strong><i class="icon-user icon-large"></i><h3 class="text-center">Server Event Log - Last 1000 activities</h3></strong>
+									<strong><i class="fa fa-list-alt"></i><h3 class="text-center">Easy-HotSpot Activity Log</h3></strong>
 								</div>
 								<thead>
 									<tr>
 										<th>#</th>
 										<th>Time</th>
-										<th>Topic</th>
-										<th>Description</th>
+										<th>Action</th>
+										<th>Details</th>
 									</tr>
 								</thead>
-								<tbody>
+								<tbody id="server-log-tbody">
 									<?php
+									require_once 'config.php';
+									require_once 'audit_log.php';
 									$i = 0;
-									foreach ($util->setMenu('/log')->getAll() as $entry) {
-										$i++;	
-										echo '<tr>';
+									
+									// Always show local audit logs (these can be cleared)
+									$logs = getAuditLog(1000);
+									if (empty($logs)) {
+										echo '<tr><td colspan="4" class="text-center">No log entries found</td></tr>';
+									} else {
+										foreach ($logs as $entry) {
+											$i++;
+											echo '<tr>';
 											echo '<td>'.$i.'</td>';
-											echo '<td>', $entry('time'),'</td>';
-											echo '<td>', $entry('topics'), '</td>';
-											echo '<td>', $entry('message'), '</td>';
-										echo '</tr>';
+											echo '<td>'.date('Y-m-d H:i:s', strtotime($entry['created_at'])).'</td>';
+											echo '<td><span class="label label-info">'.$entry['action'].'</span></td>';
+											echo '<td>'.$entry['details'].' <em>(by '.$entry['username'].')</em></td>';
+											echo '</tr>';
+										}
 									}
 									?>
 								</tbody>
 							</table>
 						</div>
-						<div class="col-sm-2 col-sm-offset-5">
-							<button data-dismiss="modal" class="btn btn-info center-element" ><i class="icon-save icon-large"></i>&nbsp;BACK</button>
+						<div class="col-sm-4 col-sm-offset-4 text-center">
+							<button data-dismiss="modal" class="btn btn-info"><i class="fa fa-arrow-left"></i>&nbsp;BACK</button>
 						</div>						
 					</div>
 				<!--</div>-->
@@ -901,7 +1056,120 @@
 			</div>
 		</div>
 		<!-- 11. End HotSpot User Profiles Management Section -->
-	</div>		
+		
+		<!-- 12. Start Batch Manager Modal -->
+		<div class="child-modal modal fade" id="batch-manager" tabindex="-1" role="dialog" aria-hidden="true">
+            <div class="modal-content">
+                <div class="close-modal" data-dismiss="modal">
+                    <div class="lr">
+                        <div class="rl"></div>
+                    </div>
+                </div>
+                <div class="container">
+                    <div class="no_print">
+						<div class="row">
+							<div class="col-sm-4 col-sm-offset-4 text-center" style="margin-bottom: 15px;">
+								<button data-dismiss="modal" class="btn btn-info"><i class="fa fa-arrow-left"></i>&nbsp;BACK</button>
+								<a href="dashboard.php" class="btn btn-success"><i class="fa fa-line-chart"></i>&nbsp;Dashboard</a>
+							</div>
+							<div class="col-sm-12 col-md-12 thumbnail" style="box-shadow: 10px 10px 5px #888888;">
+								<table cellpadding="0" cellspacing="0" border="0" class="table table-bordered" id="table-01">
+									<div class="alert alert-info">
+										<strong><i class="fa fa-th-list"></i><h3 class="text-center">Batch Manager - Manage Voucher Batches</h3></strong>
+									</div>
+									<thead>
+										<tr>
+											<th>Batch ID</th>
+											<th>Time Tier</th>
+											<th>Total</th>
+											<th>Active</th>
+											<th>Used</th>
+											<th>Revenue</th>
+											<th>Created</th>
+											<?php if($_SESSION['user_level'] <= 2): ?>
+											<th>Actions</th>
+											<?php endif; ?>
+										</tr>
+									</thead>
+									<tbody>
+										<?php 
+										include('dbconfig.php');
+										$stmt = $DB_con->prepare("SELECT 
+											batch_id,
+											limit_uptime,
+											COUNT(*) as total,
+											COUNT(CASE WHEN status = 'Active' THEN 1 END) as active,
+											COUNT(CASE WHEN status = 'Used' OR status = 'Over' THEN 1 END) as used,
+											COALESCE(SUM(price), 0) as revenue,
+											MIN(created_on) as created
+											FROM hotspot_vouchers 
+											WHERE batch_id IS NOT NULL
+											GROUP BY batch_id, limit_uptime
+											ORDER BY created DESC");
+										$stmt->execute();
+										
+										if ($stmt->rowCount() == 0) {
+											echo '<tr><td colspan="8" class="text-center">No batches found. Create vouchers using "Add Multiple Users".</td></tr>';
+										} else {
+											while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+												echo '<tr>';
+												echo '<td><strong>'.htmlspecialchars($row['batch_id']).'</strong></td>';
+												echo '<td>'.getUptimeName($row['limit_uptime']).'</td>';
+												echo '<td>'.$row['total'].'</td>';
+												echo '<td style="color: #72bf48;"><strong>'.$row['active'].'</strong></td>';
+												echo '<td style="color: #28ABE3;">'.$row['used'].'</td>';
+												echo '<td><strong>'.formatPrice($row['revenue']).'</strong></td>';
+												echo '<td>'.date('M d, Y', strtotime($row['created'])).'</td>';
+												if($_SESSION['user_level'] <= 2) {
+													echo '<td>';
+													echo '<a href="voucher.php" class="btn btn-sm btn-primary" title="Print this batch"><i class="fa fa-print"></i></a> ';
+													echo '<button onclick="deleteBatch(\''.htmlspecialchars($row['batch_id'], ENT_QUOTES).'\')" class="btn btn-sm btn-danger" title="Delete entire batch"><i class="fa fa-trash"></i></button>';
+													echo '</td>';
+												}
+												echo '</tr>';
+											}
+										}
+										?>
+									</tbody>
+								</table>
+							</div>
+							<div class="col-sm-4 col-sm-offset-4 text-center">
+								<button data-dismiss="modal" class="btn btn-info"><i class="fa fa-arrow-left"></i>&nbsp;BACK</button>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<!-- 12. End Batch Manager Modal -->
+	</div>
+
+<script>
+function clearServerLogs() {
+    if (!confirm('Are you sure you want to clear ALL activity logs? This cannot be undone.')) {
+        return;
+    }
+    
+    $.ajax({
+        url: 'ajax_clear_logs.php',
+        type: 'POST',
+        dataType: 'json',
+        success: function(response) {
+            if (response.success) {
+                // Clear the table visually
+                $('#server-log-tbody').html('<tr><td colspan="4" class="text-center">Logs cleared successfully!</td></tr>');
+                alert('Activity logs cleared!');
+            } else {
+                alert('Error: ' + response.message);
+            }
+        },
+        error: function(xhr, status, error) {
+            alert('Failed to clear logs: ' + error);
+        }
+    });
+}
+</script>
+		
 </body>
 <?php
 include('modal_change_pass.php');

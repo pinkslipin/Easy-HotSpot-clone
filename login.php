@@ -1,7 +1,10 @@
+<?php 
+// Start session FIRST before any HTML output
+if ( !isset($_SESSION) ) session_start();
+// Suppress deprecation warnings for PHP 8.x compatibility
+error_reporting(E_ALL & ~E_DEPRECATED);
+?>
 <?php include('header.php'); ?>
-<?php if ( !isset($_SESSION) ) session_start(); ?>
-<?php  error_reporting(E_ALL);
-ini_set('display_errors', 1); ?>
 <div class="container">
 	<header>
 		<h1 style="text-align:center;">Easy Hotspot</h1>	
@@ -82,10 +85,19 @@ ini_set('display_errors', 1); ?>
 							$_SESSION['id']=$row['user_id'];
 							$_SESSION['username']=$row['firstname'].' '.$row['lastname'];
 							$_SESSION['user_level']= $row['user_level'];
+							
+							// Log successful login
+							require_once 'audit_log.php';
+							auditLog('login', 'User logged in successfully');
+							
 							echo '<script language="javascript">window.location.href ="index.php";</script>';
 						}
 						else
 							{
+							// Log failed login attempt
+							require_once 'audit_log.php';
+							auditLog('login_failed', "Failed login attempt for username: $username", 'anonymous');
+							
 							echo '<script>cmodal("Access Denied!", "No Active User account with the given Username/Password Combination!", "error", "index.php")</script>';
 						}
 					}

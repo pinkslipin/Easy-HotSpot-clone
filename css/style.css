@@ -41,6 +41,46 @@ p {
     line-height: 21px;
 }
 
+/**** Modern Button Styles ****/
+.btn {
+    border-radius: 8px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    border: none;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+}
+
+.btn-lg {
+    padding: 12px 25px;
+    font-size: 16px;
+}
+
+.btn-success {
+    background: linear-gradient(135deg, #72bf48 0%, #5da03a 100%);
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.btn-info {
+    background: linear-gradient(135deg, #28ABE3 0%, #1a8fc2 100%);
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #FF432E 0%, #d63520 100%);
+}
+
+.btn-warning {
+    background: linear-gradient(135deg, #FFD700 0%, #e6c200 100%);
+    color: #333;
+}
+
 /**** Start Logo Section ****/
 
 #logo-section {
@@ -51,6 +91,7 @@ p {
     font-family: 'Lobster', cursive;
     color: #fff;
     font-size: 60px;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
 }
 
 .logo span {
@@ -105,7 +146,7 @@ p {
 
 /**** Start Main Body Section ****/
 .mainbody-section {
-    padding-top: 50px;
+    padding-top: 30px;
     padding-bottom: 30px;
 }
 
@@ -113,10 +154,11 @@ p {
     color: #fff;
     padding-top: 20px;
     padding-bottom: 20px;
-    margin-bottom: 30px;
+    margin-bottom: 15px;
 	-webkit-transition: all 0.3s;
 	transition: all 0.3s;
-	
+	border-radius: 12px;
+	box-shadow: 0 4px 6px rgba(0,0,0,0.2);
 }
 
 .menu-item a {
@@ -129,21 +171,27 @@ p {
 .menu-item a p {
     font-family: 'Oswald', sans-serif;
     font-weight: 300;
-    font-size: 20px;
+    font-size: 16px;
+    margin-top: 10px;
+    margin-bottom: 0;
 }
 
 .menu-item a i {
-    font-size: 50px;
-    padding-bottom: 20px;
+    font-size: 40px;
+    padding-bottom: 10px;
+}
+
+.menu-item:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 15px rgba(0,0,0,0.3);
 }
 
 .menu-item:hover a {
     text-decoration: none;
-    //color: #333;
-	animation: wobble;
-	-webkit-animation: wobble;
-	animation-duration: 1000ms;
-	-webkit-animation-duration: 1000ms;
+	animation: pulse;
+	-webkit-animation: pulse;
+	animation-duration: 500ms;
+	-webkit-animation-duration: 500ms;
 }
 
 @media only screen 

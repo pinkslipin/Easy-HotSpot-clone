@@ -1,0 +1,13 @@
+{
+    "name": "cafe/easy-hotspot",
+    "description": "Cafe WiFi Voucher System",
+    "authors": [
+        {
+            "name": "pinkslipin",
+            "email": "craigmattc@gmail.com"
+        }
+    ],
+    "require": {
+        "evilfreelancer/routeros-api-php": "^1.6"
+    }
+}

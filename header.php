@@ -59,6 +59,50 @@
 		cmodalOkCancel("Logout System?", "Logout Selected.. Do you want to Logout ?", "information", btns);	
 	return false;
     }
+	
+	// Clear server/audit logs
+	function clearServerLogs() {
+		if (confirm('Are you sure you want to clear all audit logs? This cannot be undone.')) {
+			var xhr = new XMLHttpRequest();
+			xhr.open('GET', 'ajax_clear_logs.php', true);
+			xhr.onreadystatechange = function() {
+				if (xhr.readyState === 4) {
+					if (xhr.status === 200) {
+						cmodal("Success", "Logs cleared successfully!", "success");
+						// Refresh the log table
+						document.getElementById('server-log-tbody').innerHTML = '<tr><td colspan="4" class="text-center">No log entries found</td></tr>';
+					} else {
+						cmodal("Error", "Failed to clear logs", "error");
+					}
+				}
+			};
+			xhr.send();
+		}
+	}
+	
+	// Delete batch
+	function deleteBatch(batchId) {
+		if (confirm('Are you sure you want to delete batch "' + batchId + '"? All vouchers in this batch will be permanently removed.')) {
+			var xhr = new XMLHttpRequest();
+			xhr.open('GET', 'ajax_delete_batch.php?batch_id=' + encodeURIComponent(batchId), true);
+			xhr.onreadystatechange = function() {
+				if (xhr.readyState === 4) {
+					if (xhr.status === 200) {
+						var response = JSON.parse(xhr.responseText);
+						if (response.success) {
+							cmodal("Success", response.message, "success");
+							setTimeout(function() { location.reload(); }, 1500);
+						} else {
+							cmodal("Error", response.message, "error");
+						}
+					} else {
+						cmodal("Error", "Failed to delete batch", "error");
+					}
+				}
+			};
+			xhr.send();
+		}
+	}
 </script> 
 <script type="text/javascript">
 //Guest User - Removal

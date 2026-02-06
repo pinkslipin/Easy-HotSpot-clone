@@ -1,7 +1,10 @@
 <?php
 //Start Removing All Un-initiated Guest User Accounts
 require_once 'config.php';
-if ( !isset($_SESSION) ) session_start();
+require_once 'security_helper.php';
+secure_session_start();
+require_auth();
+csrf_require();
 
 if ($_SESSION['user_level'] <= 2) {
 	

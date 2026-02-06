@@ -1,0 +1,71 @@
+# Security hardening for Easy HotSpot
+
+# Deny direct access to sensitive configuration files
+<FilesMatch "^(dbconfig|config|security_helper|packages_config|pricing_config|expiry_check|audit_log|router_helper|mock_router|routeros_api|database)\.php$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Deny access to SQL dump files
+<FilesMatch "\.(sql|sql\.gz|sql\.bz2)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Deny access to composer files
+<FilesMatch "^composer\.(json|lock|phar)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Deny access to markdown and text documentation
+<FilesMatch "\.(md|txt)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Deny access to mock data directory
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^mock_data/ - [F,L]
+    RewriteRule ^PEAR2/ - [F,L]
+    RewriteRule ^vendor/ - [F,L]
+</IfModule>
+
+# Prevent directory listing
+Options -Indexes
+
+# Prevent clickjacking
+Header always set X-Frame-Options "SAMEORIGIN"
+
+# Prevent MIME type sniffing
+Header always set X-Content-Type-Options "nosniff"
+
+# XSS protection
+Header always set X-XSS-Protection "1; mode=block"
+
+# Referrer policy
+Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+# Disable server signature
+ServerSignature Off

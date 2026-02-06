@@ -1,4 +1,7 @@
-<?php require_once 'pricing_config.php'; ?>
+<?php 
+require_once 'pricing_config.php'; 
+// packages_config.php is now loaded via pricing_config.php
+?>
 <style>
 /* Clean Dashboard Styles */
 .dashboard-header {
@@ -132,13 +135,13 @@
         
         <!-- Dashboard Header -->
         <div class="dashboard-header text-center">
-            <h1><i class="fa fa-wifi"></i> Easy HotSpot</h1>
+            <h1><i class="fa fa-wifi"></i> MindSpace</h1>
             <p>WiFi Hotspot Voucher Management System</p>
             <div class="header-actions">
                 <a href="dashboard.php" class="btn"><i class="fa fa-line-chart"></i> Dashboard</a>
                 <a href="voucher.php" class="btn"><i class="fa fa-print"></i> Print Vouchers</a>
                 <a href="portal.php" class="btn"><i class="fa fa-paint-brush"></i> Customize Portal</a>
-                <button onclick="log_out()" class="btn btn-logout"><i class="fa fa-sign-out"></i> Logout (<?php echo $_SESSION['username']; ?>)</button>
+                <button onclick="log_out()" class="btn btn-logout"><i class="fa fa-sign-out"></i> Logout (<?php echo htmlspecialchars($_SESSION['username'], ENT_QUOTES, 'UTF-8'); ?>)</button>
             </div>
         </div>
 		
@@ -266,70 +269,69 @@
 									<div class="panel-body">
 										<div class="form-horizontal">
 											<div class="form-group form-group-sm">
-												<div class="col-sm-4">
-													<label class="col-sm-6 control-label" >User Name</label>
-													<div class="col-sm-6">
-														<input type="text" placeholder="Required Username *" name="uname" id="uname" required >
+												<div class="col-sm-6">
+													<label class="col-sm-4 control-label" >User Name</label>
+													<div class="col-sm-8">
+														<input type="text" class="form-control" placeholder="Required Username *" name="uname" id="uname" required >
 													</div>
 												</div>
-												<div class="col-sm-4">
-													<label class="col-sm-6 control-label" >Password</label>
-													<div class="col-sm-6">
-														<input type="text" placeholder="required password *" name="psw" id="psw" required>
+												<div class="col-sm-6">
+													<label class="col-sm-4 control-label" >Password</label>
+													<div class="col-sm-8">
+														<input type="text" class="form-control" placeholder="Required Password *" name="psw" id="psw" required>
 													</div>
 												</div>
-												<div class="col-sm-4">						
-													<label class="col-sm-6 control-label" >Validity Period</label>
-													<div class="col-sm-6">
-														<select class="myCombo" id="slimit_uptime" name="slimit_uptime" required>
-															<?php foreach ($VOUCHER_PRICES as $time => $price): ?>
-																<option value="<?php echo $time; ?>" <?php echo $time === '1h' ? 'selected' : ''; ?>>
-																	<?php echo getUptimeName($time) . ' - ' . formatPrice($price); ?>
-																</option>
+											</div>
+											<div class="form-group form-group-sm">
+												<div class="col-sm-6">						
+													<label class="col-sm-4 control-label" >Package</label>
+													<div class="col-sm-8">
+														<select class="myCombo form-control" id="spackage_id" name="spackage_id" required>
+															<?php 
+															$grouped = getPackagesGroupedByCategory();
+															foreach ($grouped as $catId => $catData): 
+															?>
+																<optgroup label="<?php echo htmlspecialchars($catData['name']); ?>">
+																<?php foreach ($catData['packages'] as $pkg): 
+																	$displayName = $pkg['name'];
+																	if ($pkg['type'] === 'window' && isset($pkg['window_description'])) {
+																		$displayName .= ' (' . $pkg['window_description'] . ')';
+																	}
+																	$selected = ($pkg['id'] === 'ind_1h') ? 'selected' : '';
+																?>
+																	<option value="<?php echo htmlspecialchars($pkg['id']); ?>" <?php echo $selected; ?>>
+																		<?php echo htmlspecialchars($displayName) . ' - ' . formatPrice($pkg['price']); ?>
+																	</option>
+																<?php endforeach; ?>
+																</optgroup>
 															<?php endforeach; ?>
 														</select>
 													</div>
 												</div>
-											</div>	
-											<div class="form-group form-group-sm">
-												<div class="col-sm-4">						
-													<label class="col-sm-6 control-label" for="slimit_bytes">Maximum Usage Limit(GB), 0 for NO Limit</label>
-													<div class="col-sm-6">
-														<input type="number" title="Maximum usable data in GB" name="slimit_bytes" id="slimit_bytes" min="0" value="0" required >
-														<!--<select class="myCombo" id="slimit_bytes" name="slimit_bytes">
-															<option value="0">NONE</option>									
-															<option value="1">1 GB</option>
-															<option value="5">5 GB</option>
-															<option value="10">10 GB</option>
-															<option value="20">20 GB</option>
-															<option value="50">50 GB</option>
-														</select> -->
-													</div>
-												</div>
-												<div class="col-sm-4">						
-													<label class="col-sm-6 control-label" >Bandwidth (Mbps) Profile</label>
-													<div class="col-sm-6">
+												<div class="col-sm-6">						
+													<label class="col-sm-4 control-label" >Bandwidth Profile</label>
+													<div class="col-sm-8">
 														<?php
 														$util->setMenu('/ip hotspot user profile');
-														echo '<select class="myCombo" id="sprofile" name="sprofile" required>';
+														echo '<select class="myCombo form-control" id="sprofile" name="sprofile" required>';
 														foreach ($util->getAll() as $item) {
 															echo '<option>', $item->getProperty('name'), '</option>';
 														}
 														echo '</select>'; ?>
 													</div>
 												</div>
-												<div class="col-sm-4">
-													<div class="col-sm-3 col-sm-offset-3">
-														<div class="pull-right">
-															<button name="issuing" id="issuing" onClick="ajaxSingle()" class="btn btn-success"><i class="icon-save icon-large"></i></a>&nbsp;Issue</button>
-														</div>
+											</div>
+											<div class="form-group form-group-sm">
+												<div class="col-sm-6">						
+													<label class="col-sm-4 control-label" for="slimit_bytes">Data Limit (GB)</label>
+													<div class="col-sm-8">
+														<input type="number" class="form-control" title="Maximum usable data in GB, 0 for unlimited" name="slimit_bytes" id="slimit_bytes" min="0" value="0" required >
 													</div>
-													<div class="col-sm-3">
-														<div class="pull-left">
-															<button  data-dismiss="modal" class="btn btn-warning" ><i class="icon-save icon-large"></i></a>&nbsp;BACK</button>
-														</div>
-													</div>
-												</div>	
+												</div>
+												<div class="col-sm-6 text-right" style="padding-top: 5px;">
+													<button type="button" name="issuing" id="issuing" onClick="ajaxSingle()" class="btn btn-success" tabindex="5"><i class="fa fa-check"></i> Issue</button>
+													<button type="button" class="btn btn-warning" data-dismiss="modal"><i class="fa fa-arrow-left"></i> BACK</button>
+												</div>
 											</div>
 										</div>
 									</div>	
@@ -382,13 +384,26 @@
 											</div>	
 											<div class="form-group form-group-sm">
 												<div class="col-sm-4">
-													<label class="col-sm-6 control-label" for="limit_uptime">Validity Period</label>
+													<label class="col-sm-6 control-label" for="package_id">Package</label>
 													<div class="col-sm-6">
-														<select class="myCombo" id="limit_uptime" name="limit_uptime" required>
-															<?php foreach ($VOUCHER_PRICES as $time => $price): ?>
-																<option value="<?php echo $time; ?>" <?php echo $time === '1h' ? 'selected' : ''; ?>>
-																	<?php echo getUptimeName($time) . ' - ' . formatPrice($price); ?>
-																</option>
+														<select class="myCombo" id="package_id" name="package_id" required>
+															<?php 
+															$grouped = getPackagesGroupedByCategory();
+															foreach ($grouped as $catId => $catData): 
+															?>
+																<optgroup label="<?php echo htmlspecialchars($catData['name']); ?>">
+																<?php foreach ($catData['packages'] as $pkg): 
+																	$displayName = $pkg['name'];
+																	if ($pkg['type'] === 'window' && isset($pkg['window_description'])) {
+																		$displayName .= ' (' . $pkg['window_description'] . ')';
+																	}
+																	$selected = ($pkg['id'] === 'ind_1h') ? 'selected' : '';
+																?>
+																	<option value="<?php echo htmlspecialchars($pkg['id']); ?>" <?php echo $selected; ?>>
+																		<?php echo htmlspecialchars($displayName) . ' - ' . formatPrice($pkg['price']); ?>
+																	</option>
+																<?php endforeach; ?>
+																</optgroup>
 															<?php endforeach; ?>
 														</select>
 													</div>
@@ -775,7 +790,7 @@
 									}
 								}
 								catch (Exception $e) {
-									echo '<script>cmodal("Access Denied!", "Error accessing validity expired users!'.$e->getMessage().'", "error", "index.php")</script>';
+									echo '<script>cmodal("Access Denied!", "Error accessing validity expired users.", "error", "index.php")</script>';
 								}
 								?>
 							</tbody>
@@ -810,7 +825,7 @@
 						<div class="col-sm-12 col-md-12 thumbnail" style="box-shadow: 10px 10px 5px #888888;">
 							<table cellpadding="0" cellspacing="0" border="0" class="table table-bordered" id="table-01">
 								<div class="alert alert-info">
-									<strong><i class="fa fa-list-alt"></i><h3 class="text-center">Easy-HotSpot Activity Log</h3></strong>
+									<strong><i class="fa fa-list-alt"></i><h3 class="text-center">Activity Log</h3></strong>
 								</div>
 								<thead>
 									<tr>
@@ -872,7 +887,7 @@
 							<div class="col-sm-12 col-md-12 thumbnail" style="box-shadow: 10px 10px 5px #888888;">
 								<table cellpadding="0" cellspacing="0" border="0" class="table table-bordered" id="table-01">
 									<div class="alert alert-info">
-										<strong><i class="icon-user icon-large"></i><h3 class="text-center">System Users managing Hotspot Activities</h3></strong>
+										<strong><i class="icon-user icon-large"></i><h3 class="text-center">System Users managing Activities</h3></strong>
 									</div>
 									<thead>
 										<tr>

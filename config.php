@@ -17,10 +17,11 @@
 
 // Suppress deprecation warnings for older PHP compatibility
 error_reporting(E_ALL & ~E_DEPRECATED);
+ini_set('display_errors', 0);
 
 // ============ MOCK MODE ============
 // Set to false when connecting to a real MikroTik router
-define('MOCK_MODE', false);
+define('MOCK_MODE', true);
 
 // ============ ROUTER CREDENTIALS ============
 $host = "192.168.254.113";  // MikroTik router IP address

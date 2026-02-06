@@ -3,7 +3,7 @@
 		<div class="modal-content">
 			<form class="form-horizontal" id="chPassword" method="post">
 				<div class="modal-body">
-					<div class="alert alert-info text-center"><strong>Welcome <?php echo $_SESSION['username'].', '; ?> Change Your Login Password</strong></div>
+					<div class="alert alert-info text-center"><strong>Welcome <?php echo htmlspecialchars($_SESSION['username'], ENT_QUOTES, 'UTF-8').', '; ?> Change Your Login Password</strong></div>
 					<div class="form-group">
 						<label class="control-label col-sm-6">Type-in New Password</label>
 						<div class="col-sm-6">

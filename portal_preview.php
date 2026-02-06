@@ -42,6 +42,7 @@ function getPortalConfigPreview() {
 
 // Get pricing config
 require_once 'pricing_config.php';
+require_once 'security_helper.php';
 
 $config = getPortalConfigPreview();
 
@@ -76,7 +77,7 @@ header('Content-Type: text/html; charset=utf-8');
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, <?php echo $config['background_color']; ?> 0%, <?php echo $config['background_gradient']; ?> 100%);
+            background: linear-gradient(135deg, <?php echo sanitize_color($config['background_color']); ?> 0%, <?php echo sanitize_color($config['background_gradient']); ?> 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -131,13 +132,13 @@ header('Content-Type: text/html; charset=utf-8');
         }
         .input-group input:focus {
             outline: none;
-            border-color: <?php echo $config['button_color']; ?>;
+            border-color: <?php echo sanitize_color($config['button_color']); ?>;
         }
         .login-btn {
             width: 100%;
             padding: 15px;
-            background: <?php echo $config['button_color']; ?>;
-            color: <?php echo $config['button_text_color']; ?>;
+            background: <?php echo sanitize_color($config['button_color']); ?>;
+            color: <?php echo sanitize_color($config['button_text_color']); ?>;
             border: none;
             border-radius: 10px;
             font-size: 18px;
@@ -177,7 +178,7 @@ header('Content-Type: text/html; charset=utf-8');
             color: #333;
         }
         .price-list .price {
-            color: <?php echo $config['button_color']; ?>;
+            color: <?php echo sanitize_color($config['button_color']); ?>;
             font-weight: 700;
             font-size: 18px;
         }
@@ -208,7 +209,14 @@ header('Content-Type: text/html; charset=utf-8');
             font-weight: bold;
             z-index: 1000;
         }
-        <?php echo $config['custom_css']; ?>
+        <?php 
+        $css = $config['custom_css'] ?? '';
+        $css = preg_replace('/<\/style/i', '', $css);
+        $css = preg_replace('/expression\s*\(/i', '', $css);
+        $css = preg_replace('/javascript\s*:/i', '', $css);
+        $css = preg_replace('/url\s*\(\s*["\']?\s*data:/i', '', $css);
+        echo $css;
+        ?>
     </style>
 </head>
 <body>

@@ -4,17 +4,15 @@
  * 
  * Allows customization of the MikroTik hotspot login page
  */
-if (!isset($_SESSION)) session_start();
+require_once 'security_helper.php';
+secure_session_start();
 require_once 'dbconfig.php';
 require_once 'config.php';
 require_once 'pricing_config.php';
 require_once 'audit_log.php';
 
-// Check if user is logged in
-if (!isset($_SESSION['username'])) {
-    header('Location: login.php');
-    exit;
-}
+// SECURITY: Require authenticated user
+require_auth();
 
 // Portal configuration file path
 $portalConfigFile = __DIR__ . '/portal_config.json';
@@ -67,22 +65,27 @@ $message = '';
 $messageType = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_portal'])) {
+    // SECURITY: Validate CSRF token
+    if (!csrf_validate()) {
+        $message = 'Security error: Invalid token. Please refresh and try again.';
+        $messageType = 'danger';
+    } else {
     $config = [
-        'title' => isset($_POST['title']) ? $_POST['title'] : 'Welcome to Our WiFi',
-        'subtitle' => isset($_POST['subtitle']) ? $_POST['subtitle'] : '',
-        'logo_url' => isset($_POST['logo_url']) ? $_POST['logo_url'] : 'images/logo.png',
-        'background_color' => isset($_POST['background_color']) ? $_POST['background_color'] : '#667eea',
-        'background_gradient' => isset($_POST['background_gradient']) ? $_POST['background_gradient'] : '#764ba2',
-        'text_color' => isset($_POST['text_color']) ? $_POST['text_color'] : '#ffffff',
-        'button_color' => isset($_POST['button_color']) ? $_POST['button_color'] : '#28ABE3',
-        'button_text_color' => isset($_POST['button_text_color']) ? $_POST['button_text_color'] : '#ffffff',
+        'title' => isset($_POST['title']) ? strip_tags($_POST['title']) : 'Welcome to Our WiFi',
+        'subtitle' => isset($_POST['subtitle']) ? strip_tags($_POST['subtitle']) : '',
+        'logo_url' => isset($_POST['logo_url']) ? filter_var($_POST['logo_url'], FILTER_SANITIZE_URL) : 'images/logo.png',
+        'background_color' => isset($_POST['background_color']) ? sanitize_color($_POST['background_color']) : '#667eea',
+        'background_gradient' => isset($_POST['background_gradient']) ? sanitize_color($_POST['background_gradient']) : '#764ba2',
+        'text_color' => isset($_POST['text_color']) ? sanitize_color($_POST['text_color']) : '#ffffff',
+        'button_color' => isset($_POST['button_color']) ? sanitize_color($_POST['button_color']) : '#28ABE3',
+        'button_text_color' => isset($_POST['button_text_color']) ? sanitize_color($_POST['button_text_color']) : '#ffffff',
         'show_price_list' => isset($_POST['show_price_list']) ? true : false,
-        'custom_css' => isset($_POST['custom_css']) ? $_POST['custom_css'] : '',
-        'footer_text' => isset($_POST['footer_text']) ? $_POST['footer_text'] : '',
+        'custom_css' => isset($_POST['custom_css']) ? sanitize_css($_POST['custom_css']) : '',
+        'footer_text' => isset($_POST['footer_text']) ? strip_tags($_POST['footer_text']) : '',
         'terms_enabled' => isset($_POST['terms_enabled']) ? true : false,
-        'terms_text' => isset($_POST['terms_text']) ? $_POST['terms_text'] : '',
-        'support_contact' => isset($_POST['support_contact']) ? $_POST['support_contact'] : '',
-        'wifi_name' => isset($_POST['wifi_name']) ? $_POST['wifi_name'] : 'CafeWiFi'
+        'terms_text' => isset($_POST['terms_text']) ? strip_tags($_POST['terms_text']) : '',
+        'support_contact' => isset($_POST['support_contact']) ? strip_tags($_POST['support_contact']) : '',
+        'wifi_name' => isset($_POST['wifi_name']) ? strip_tags($_POST['wifi_name']) : 'CafeWiFi'
     ];
     
     if (savePortalConfig($config)) {
@@ -93,6 +96,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_portal'])) {
         $message = 'Error saving portal settings.';
         $messageType = 'danger';
     }
+    } // end CSRF check
 }
 
 // Handle export
@@ -108,16 +112,21 @@ if (isset($_GET['export']) && $_GET['export'] === 'html') {
  * Generate the portal HTML for MikroTik
  */
 function generatePortalHTML($config) {
-    global $VOUCHER_PRICES, $CURRENCY_SYMBOL;
+    global $CURRENCY_SYMBOL;
     
     $priceListHTML = '';
     if ($config['show_price_list']) {
-        $priceListHTML = '<div class="price-list"><h3>WiFi Packages</h3><ul>';
-        foreach ($VOUCHER_PRICES as $time => $price) {
-            $name = getUptimeName($time);
-            $priceListHTML .= "<li><span class='time'>$name</span><span class='price'>$CURRENCY_SYMBOL" . number_format($price, 2) . "</span></li>";
+        $priceListHTML = '<div class="price-list"><h3>WiFi Packages</h3>';
+        $portalPackages = getPackagesForPortal();
+        foreach ($portalPackages as $category) {
+            $priceListHTML .= '<h4 style="font-size: 12px; margin: 10px 0 5px; opacity: 0.9;">' . htmlspecialchars($category['category']) . '</h4>';
+            $priceListHTML .= '<ul>';
+            foreach ($category['packages'] as $pkg) {
+                $priceListHTML .= "<li><span class='time'>" . htmlspecialchars($pkg['name']) . "</span><span class='price'>$CURRENCY_SYMBOL" . number_format($pkg['price'], 2) . "</span></li>";
+            }
+            $priceListHTML .= '</ul>';
         }
-        $priceListHTML .= '</ul></div>';
+        $priceListHTML .= '</div>';
     }
     
     $termsHTML = '';
@@ -125,18 +134,37 @@ function generatePortalHTML($config) {
         $termsHTML = '<div class="terms"><label><input type="checkbox" name="agree" required> ' . htmlspecialchars($config['terms_text']) . '</label></div>';
     }
     
+    // SECURITY: Sanitize custom CSS to prevent injection (strip script tags, expressions, url())
+    $sanitized_css = preg_replace(
+        ['/expression\s*\(/i', '/<\s*script/i', '/<\s*\/\s*style/i', '/javascript\s*:/i', '/url\s*\(\s*[\'"]?\s*javascript/i', '/behavior\s*:/i', '/-moz-binding\s*:/i'],
+        ['/* blocked */(', '/* blocked */', '/* blocked */', '/* blocked */', '/* blocked */(', '/* blocked */:', '/* blocked */:'],
+        $config['custom_css']
+    );
+
+    // SECURITY: Sanitize color values - only allow hex colors, rgb, named colors
+    $bg_color = preg_match('/^#[0-9a-fA-F]{3,8}$/', $config['background_color']) ? $config['background_color'] : '#667eea';
+    $bg_gradient = preg_match('/^#[0-9a-fA-F]{3,8}$/', $config['background_gradient']) ? $config['background_gradient'] : '#764ba2';
+    $txt_color = preg_match('/^#[0-9a-fA-F]{3,8}$/', $config['text_color']) ? $config['text_color'] : '#ffffff';
+    $btn_color = preg_match('/^#[0-9a-fA-F]{3,8}$/', $config['button_color']) ? $config['button_color'] : '#28ABE3';
+    $btn_txt_color = preg_match('/^#[0-9a-fA-F]{3,8}$/', $config['button_text_color']) ? $config['button_text_color'] : '#ffffff';
+    $safe_title = htmlspecialchars($config['title'], ENT_QUOTES, 'UTF-8');
+    $safe_subtitle = htmlspecialchars($config['subtitle'], ENT_QUOTES, 'UTF-8');
+    $safe_footer = htmlspecialchars($config['footer_text'], ENT_QUOTES, 'UTF-8');
+    $safe_logo = htmlspecialchars($config['logo_url'], ENT_QUOTES, 'UTF-8');
+    $safe_support = htmlspecialchars($config['support_contact'] ?? '', ENT_QUOTES, 'UTF-8');
+
     $html = <<<HTML
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{$config['title']}</title>
+    <title>{$safe_title}</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, {$config['background_color']} 0%, {$config['background_gradient']} 100%);
+            background: linear-gradient(135deg, {$bg_color} 0%, {$bg_gradient} 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -152,8 +180,8 @@ function generatePortalHTML($config) {
             width: 100%;
         }
         .login-header {
-            background: linear-gradient(135deg, {$config['background_color']} 0%, {$config['background_gradient']} 100%);
-            color: {$config['text_color']};
+            background: linear-gradient(135deg, {$bg_color} 0%, {$bg_gradient} 100%);
+            color: {$txt_color};
             padding: 30px;
             text-align: center;
         }
@@ -192,13 +220,13 @@ function generatePortalHTML($config) {
         }
         .form-group input:focus {
             outline: none;
-            border-color: {$config['button_color']};
+            border-color: {$btn_color};
         }
         .login-btn {
             width: 100%;
             padding: 15px;
-            background: {$config['button_color']};
-            color: {$config['button_text_color']};
+            background: {$btn_color};
+            color: {$btn_txt_color};
             border: none;
             border-radius: 10px;
             font-size: 18px;
@@ -237,7 +265,7 @@ function generatePortalHTML($config) {
             font-weight: 500;
         }
         .price-list .price {
-            color: {$config['button_color']};
+            color: {$btn_color};
             font-weight: 700;
         }
         .terms {
@@ -255,15 +283,15 @@ function generatePortalHTML($config) {
             font-size: 12px;
             color: #999;
         }
-        {$config['custom_css']}
+        {$sanitized_css}
     </style>
 </head>
 <body>
     <div class="login-container">
         <div class="login-header">
-            <img src="{$config['logo_url']}" alt="Logo">
-            <h1>{$config['title']}</h1>
-            <p>{$config['subtitle']}</p>
+            <img src="{$safe_logo}" alt="Logo">
+            <h1>{$safe_title}</h1>
+            <p>{$safe_subtitle}</p>
         </div>
         <div class="login-body">
             <form name="login" action="\$(link-login-only)" method="post">
@@ -287,7 +315,7 @@ function generatePortalHTML($config) {
             </form>
         </div>
         <div class="login-footer">
-            {$config['footer_text']}
+            {$safe_footer}
         </div>
     </div>
 </body>
@@ -472,6 +500,7 @@ $qrCodeURL = "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" . 
     <?php endif; ?>
     
     <form method="post">
+        <?php echo csrf_field(); ?>
         <div class="row">
             <!-- Settings Column -->
             <div class="col-md-6">
@@ -610,16 +639,21 @@ $qrCodeURL = "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" . 
     
     <!-- Live Preview JavaScript -->
     <script>
-    // Price list data from PHP
-    var priceList = <?php echo json_encode(getAllPrices()); ?>;
+    // Price list data from PHP - new package format with categories
+    var portalPackages = <?php echo json_encode(getPackagesForPortal()); ?>;
     
     function generatePriceListHTML() {
-        var html = '<ul>';
-        for (var key in priceList) {
-            var label = key.replace('_', ' ').toUpperCase();
-            html += '<li><span class="time">' + label + '</span><span class="price">₱' + priceList[key] + '</span></li>';
+        var html = '';
+        for (var i = 0; i < portalPackages.length; i++) {
+            var category = portalPackages[i];
+            html += '<h4 style="font-size: 12px; margin: 10px 0 5px; opacity: 0.7;">' + category.category + '</h4>';
+            html += '<ul>';
+            for (var j = 0; j < category.packages.length; j++) {
+                var pkg = category.packages[j];
+                html += '<li><span class="time">' + pkg.name + '</span><span class="price">₱' + parseFloat(pkg.price).toFixed(2) + '</span></li>';
+            }
+            html += '</ul>';
         }
-        html += '</ul>';
         return html;
     }
     

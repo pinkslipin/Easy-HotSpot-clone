@@ -1,4 +1,9 @@
-<?php include('session.php'); ?>
+<?php
+require_once 'security_helper.php';
+secure_session_start();
+require_admin();
+csrf_require();
+?>
 <?php header( 'Content-Type: text/plain' ); ?>
 <?php include('header.php'); ?>
 <?php include('navbar.php'); ?>
@@ -12,8 +17,9 @@ $progress_val = 100; ?>
 </div>
 <?php
 $folder = $_SESSION['backup_folder'];
-if (!is_dir($folder)) { mkdir($folder, 0777, true); }
-chmod($folder, 0777);
+if (strpos($folder, '..') !== false) die('Invalid path');
+if (!is_dir($folder)) { mkdir($folder, 0750, true); }
+chmod($folder, 0750);
 $date = date('d-m-Y-H-i-s', time()); 
 $filename = $folder."db-backup-".$date; 
 include('dbconfig.php'); 
@@ -51,7 +57,7 @@ try {
     }
     fclose( $f );
 } catch (Exception $e) {
-    echo 'Damn it! ' . $e->getMessage() . PHP_EOL;
+    echo 'Backup failed' . PHP_EOL;
 }
 ?>
 <a id="dlink" href=<?php echo '"'.$filename.'.sql"'?> download>

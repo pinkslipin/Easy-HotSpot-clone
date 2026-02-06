@@ -1,24 +1,36 @@
 <?php
 require_once 'config.php';
-if ( !isset($_SESSION) ) session_start();
+require_once 'security_helper.php';
+secure_session_start();
+require_user();
+csrf_require();
 
 $i = 0;
 
-if ($_SESSION['user_level'] <= 3) {	
+if (true) {	
 
-	$guest_list=$_GET['removal_list'];
+	$guest_list=$_POST['removal_list'];
 	if (count($guest_list) != 0) {
 		
 		if (defined('MOCK_MODE') && MOCK_MODE === true) {
-			// Mock mode - remove from local JSON storage
-			require_once 'mock_router.php';
-			$mockUtil = new MockRouterUtil();
+			// Mock mode - remove from database (mock users are synced from DB)
+			require_once 'dbconfig.php';
 			
 			foreach ($guest_list as $guest) {
-				if ($mockUtil->removeUser($guest)) {
-					$i++;
+				try {
+					$stmt = $DB_con->prepare("DELETE FROM hotspot_vouchers WHERE user_name = :user_name");
+					$stmt->execute([':user_name' => $guest]);
+					if ($stmt->rowCount() > 0) {
+						$i++;
+					}
+				} catch (Exception $e) {
+					// Continue on error
 				}
 			}
+			
+			// Log the removal
+			require_once 'audit_log.php';
+			auditLog('user_delete', "Removed $i selected users");
 		} else {
 			// Real router mode
 			require_once 'PEAR2/Autoload.php';

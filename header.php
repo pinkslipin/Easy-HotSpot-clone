@@ -4,12 +4,37 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="Easy HotSpot - A Simple Hotspot user management utility by Team Zetozone">
     <meta name="author" content="Siby P Varkey, Team Zetozone">
+    <!-- SECURITY: Prevent clickjacking, MIME sniffing, XSS -->
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block">
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
 <!--	
 	<meta http-equiv='cache-control' content='no-cache'>
 	<meta http-equiv='expires' content='0'>
 	<meta http-equiv='pragma' content='no-cache'> -->
 
     <title>Easy HotSpot - A Simple Hotspot user management utility by Team Zetozone</title>
+    
+    <!-- Fix Package dropdown width -->
+    <style>
+        /* Fix stretched package dropdowns */
+        select#spackage_id, 
+        select#package_id,
+        select[name="spackage_id"],
+        select[name="package_id"] {
+            width: 180px !important;
+            max-width: 180px !important;
+            min-width: 150px !important;
+            display: inline-block !important;
+        }
+        /* Adjust the container div */
+        #single-user .col-sm-6 select,
+        #multi-user .col-sm-6 select {
+            width: auto !important;
+            max-width: 180px !important;
+        }
+    </style>
 
     
     <link href="css/bootstrap.min.css" rel="stylesheet" media="all"> 
@@ -53,6 +78,35 @@
         <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
         <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
     <![endif]-->
+
+<!-- SECURITY: Expose CSRF token to JavaScript for AJAX POST requests -->
+<script>var CSRF_TOKEN = '<?php echo csrf_token(); ?>';</script>
+
+<!-- SECURITY: Helper for POST AJAX calls with CSRF token -->
+<script>
+function securePost(url, params, callback) {
+    var xhr = new XMLHttpRequest();
+    var formData = new FormData();
+    formData.append('csrf_token', CSRF_TOKEN);
+    for (var key in params) {
+        if (params.hasOwnProperty(key)) formData.append(key, params[key]);
+    }
+    xhr.open('POST', url, true);
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4) {
+            if (callback) callback(xhr.status, xhr.responseText);
+        }
+    };
+    xhr.send(formData);
+}
+function securePostJSON(url, params, callback) {
+    securePost(url, params, function(status, text) {
+        try { var data = JSON.parse(text); callback(status, data); }
+        catch(e) { callback(status, text); }
+    });
+}
+</script>
+
 <script type="text/javascript">
 	function log_out() {
 		btns = [{text:"No",action:"cmodalClose",style:"cmodal-cancel"}, {text:"Yes",action:"logout.php",style:"cmodal-ok"}];
@@ -63,78 +117,42 @@
 	// Clear server/audit logs
 	function clearServerLogs() {
 		if (confirm('Are you sure you want to clear all audit logs? This cannot be undone.')) {
-			var xhr = new XMLHttpRequest();
-			xhr.open('GET', 'ajax_clear_logs.php', true);
-			xhr.onreadystatechange = function() {
-				if (xhr.readyState === 4) {
-					if (xhr.status === 200) {
-						cmodal("Success", "Logs cleared successfully!", "success");
-						// Refresh the log table
-						document.getElementById('server-log-tbody').innerHTML = '<tr><td colspan="4" class="text-center">No log entries found</td></tr>';
-					} else {
-						cmodal("Error", "Failed to clear logs", "error");
-					}
+			securePost('ajax_clear_logs.php', {}, function(status, responseText) {
+				if (status === 200) {
+					cmodal("Success", "Logs cleared successfully!", "success");
+					// Refresh the log table
+					document.getElementById('server-log-tbody').innerHTML = '<tr><td colspan="4" class="text-center">No log entries found</td></tr>';
+				} else {
+					cmodal("Error", "Failed to clear logs", "error");
 				}
-			};
-			xhr.send();
+			});
 		}
 	}
 	
 	// Delete batch
 	function deleteBatch(batchId) {
 		if (confirm('Are you sure you want to delete batch "' + batchId + '"? All vouchers in this batch will be permanently removed.')) {
-			var xhr = new XMLHttpRequest();
-			xhr.open('GET', 'ajax_delete_batch.php?batch_id=' + encodeURIComponent(batchId), true);
-			xhr.onreadystatechange = function() {
-				if (xhr.readyState === 4) {
-					if (xhr.status === 200) {
-						var response = JSON.parse(xhr.responseText);
-						if (response.success) {
-							cmodal("Success", response.message, "success");
-							setTimeout(function() { location.reload(); }, 1500);
-						} else {
-							cmodal("Error", response.message, "error");
-						}
+			securePostJSON('ajax_delete_batch.php', {batch_id: batchId}, function(status, response) {
+				if (status === 200 && typeof response === 'object') {
+					if (response.success) {
+						cmodal("Success", response.message, "success");
+						setTimeout(function() { location.reload(); }, 1500);
 					} else {
-						cmodal("Error", "Failed to delete batch", "error");
+						cmodal("Error", response.message, "error");
 					}
+				} else {
+					cmodal("Error", "Failed to delete batch", "error");
 				}
-			};
-			xhr.send();
+			});
 		}
 	}
 </script> 
 <script type="text/javascript">
 //Guest User - Removal
 function removeAjax(username){
-   var ajaxRequest;  // The variable that makes Ajax possible!
-   try{
-   
-      // Opera 8.0+, Firefox, Safari
-      ajaxRequest = new XMLHttpRequest();
-   }catch (e){
-      
-      // Internet Explorer Browsers
-      try{
-         ajaxRequest = new ActiveXObject("Msxml2.XMLHTTP");
-      }catch (e) {
-         
-         try{
-            ajaxRequest = new ActiveXObject("Microsoft.XMLHTTP");
-         }catch (e){
-         
-            // Something went wrong
-            alert("Your browser broke!");
-            return false;
-         }
-      }
-   }
-   
-
-   var queryString = "?username=" + username ;
-
-   ajaxRequest.open("GET", "ajax_rem_user.php" + queryString, true);
-   ajaxRequest.send(null);
+   securePost('ajax_rem_user.php', {username: username}, function(status, responseText) {
+      // Fire-and-forget style, same as original
+   });
    cmodal("User Removal Success", "User " + username + " Removed Successfully", "success");
 }
 
@@ -146,59 +164,28 @@ function ajaxMultiple(){
    var no_of_users = document.getElementById('no_of_users').value;
    var pass_length = document.getElementById('pass_length').value;
    var user_prefix = document.getElementById('user_prefix').value;
-   var limit_uptime = document.getElementById('limit_uptime').value;
+   var package_id = document.getElementById('package_id').value;
    var limit_bytes = document.getElementById('limit_bytes').value;
    var profile = document.getElementById('profile').value;
    var same_pass = document.getElementById('same_pass').value;
    var Pass_type = document.getElementById('pass_type').value;
 
-//   btns = [{text:"No",action:"cmodalClose",style:"cmodal-cancel"}, {text:"Yes",action:"test.php",style:"cmodal-ok"}];
-   
-   var ajaxRequest;  // The variable that makes Ajax possible!
-   try{
-   
-      // Opera 8.0+, Firefox, Safari
-      ajaxRequest = new XMLHttpRequest();
-   }catch (e){
-      
-      // Internet Explorer Browsers
-      try{
-         ajaxRequest = new ActiveXObject("Msxml2.XMLHTTP");
-      }catch (e) {
-         
-         try{
-            ajaxRequest = new ActiveXObject("Microsoft.XMLHTTP");
-         }catch (e){
-         
-            // Something went wrong
-            alert("Your browser broke!");
-            return false;
-         }
+   securePost('ajax_addusers.php', {
+      no_of_users: no_of_users,
+      pass_length: pass_length,
+      user_prefix: user_prefix,
+      package_id: package_id,
+      limit_bytes: limit_bytes,
+      profile: profile,
+      same_pass: same_pass,
+      pass_type: Pass_type
+   }, function(status, ajaxResult) {
+      if (ajaxResult == 0) {
+         cmodal("User Rights Issue",  "User Rights Problem/Empty Username.  Contact Admin for details", "error");
+      } else {
+         cmodal("Multiple Users Created", ajaxResult + " Users Accounts Added Successfully. Print the Vouchers from Voucher Printing Menu", "success");
       }
-   }
-   
-      ajaxRequest.onreadystatechange = function(){
-   
-      if(ajaxRequest.readyState == 4){
-			var ajaxResult = ajaxRequest.responseText;
-			btns = [{text:"No",action:"cmodalClose",style:"cmodal-cancel"}, {text:"Yes",action:"test.php",style:"cmodal-ok"}];
-			if (ajaxResult == 0) {
-				cmodal("User Rights Issue",  "User Rights Problem/Empty Username.  Contact Admin for details", "error");
-			}
-			else {
-				//btns = [{text:"No",action:"cmodalClose",style:"cmodal-cancel"}, {text:"Yes",action:"js:print_modal();",style:"cmodal-ok"}];
-				//cmodalOkCancel("User Creation Success", ajaxResult + " Users Added Successfully. Print the Vouchers now ?", "success", btns);
-				cmodal("Multiple Users Created", ajaxResult + " Users Accounts Added Successfully. Print the Vouchers from Voucher Printing Menu", "success");
-			}
-		}
-	  }
-  
-   var queryString = "?no_of_users=" + no_of_users ;
-   queryString +=  "&pass_length=" + pass_length + "&user_prefix=" + user_prefix ;
-   queryString += "&limit_uptime=" + limit_uptime + "&profile=" + profile + "&same_pass=" + same_pass;
-   queryString += "&limit_bytes=" + limit_bytes + "&pass_type=" + Pass_type;
-   ajaxRequest.open("GET", "ajax_addusers.php" + queryString, true);
-   ajaxRequest.send(null);
+   });
 }
 </script>
 <script>
@@ -238,83 +225,32 @@ function ajaxVoucher1(){
 <script>
 //Guest User - Start of Creation of a Single Guest User; Ajax Call
 function ajaxSingle() { //Guest User Add Single User
-   var ajaxRequest;  // The variable that makes Ajax possible!
-   try{
-   
-      // Opera 8.0+, Firefox, Safari
-      ajaxRequest = new XMLHttpRequest();
-   }catch (e){
-      
-      // Internet Explorer Browsers
-      try{
-         ajaxRequest = new ActiveXObject("Msxml2.XMLHTTP");
-      }catch (e) {
-         
-         try{
-            ajaxRequest = new ActiveXObject("Microsoft.XMLHTTP");
-         }catch (e){
-         
-            // Something went wrong
-            alert("Your browser broke!");
-            return false;
-         }
-      }
-   }
-
-   ajaxRequest.onreadystatechange = function(){
-   
-      if(ajaxRequest.readyState == 4){
-         var ajaxDisplay = document.getElementById('single');
-         ajaxDisplay.innerHTML = ajaxRequest.responseText;
-      }
-   }
-   
    var username = document.getElementById('uname').value;
    var password = document.getElementById('psw').value;
    var profile = document.getElementById('sprofile').value;
-   var limit_uptime = document.getElementById('slimit_uptime').value;
+   var package_id = document.getElementById('spackage_id').value;
    var limit_bytes = document.getElementById('slimit_bytes').value;
- 
-   var queryString = "?name=" + username ;
 
-   queryString +=  "&psd=" + password + "&profile=" + profile + "&limit_uptime=" + limit_uptime + "&limit_bytes=" + limit_bytes;
-   ajaxRequest.open("GET", "ajax_adduser.php" + queryString, true);
-   ajaxRequest.send(null);
-
- // cmodal("User Creation Success", username + "  Added Successfully. You may Print the Vouchers now", "success");
+   securePost('ajax_adduser.php', {
+      name: username,
+      psd: password,
+      profile: profile,
+      package_id: package_id,
+      limit_bytes: limit_bytes
+   }, function(status, responseText) {
+      var ajaxDisplay = document.getElementById('single');
+      ajaxDisplay.innerHTML = responseText;
+   });
 }
 // End of Creation of a Single Guest User; Ajax Call
 </script> 
 <script>
 //Guest User - Start of Removing All Un-initiated Guest User Accounts
 function ajaxUninitiated() { //Guest User
-   var ajaxRequest;  // The variable that makes Ajax possible!
-   try{
-   
-      // Opera 8.0+, Firefox, Safari
-      ajaxRequest = new XMLHttpRequest();
-   }catch (e){
-      
-      // Internet Explorer Browsers
-      try{
-         ajaxRequest = new ActiveXObject("Msxml2.XMLHTTP");
-      }catch (e) {
-         
-         try{
-            ajaxRequest = new ActiveXObject("Microsoft.XMLHTTP");
-         }catch (e){
-         
-            // Something went wrong
-            alert("Your browser broke!");
-            return false;
-         }
-      }
-   }
-   
-   ajaxRequest.open("GET", "ajax_uninitiated.php", true);
-   ajaxRequest.send(null);
-
-  cmodal("User Removal Success", "Removed all Un-Initiated Guest User Accounts from the Registry Successfully.", "success");
+   securePost('ajax_uninitiated.php', {}, function(status, responseText) {
+      // Fire-and-forget style, same as original
+   });
+   cmodal("User Removal Success", "Removed all Un-Initiated Guest User Accounts from the Registry Successfully.", "success");
 }
 // End of Removing All Un-initiated Guest User Accounts
 </script>
@@ -322,32 +258,9 @@ function ajaxUninitiated() { //Guest User
 <script>
 //Guest User - Start of Removing All Expired Guest User Accounts
 function ajaxExpired() {
-   var ajaxRequest;  // The variable that makes Ajax possible!
-   try{
-   
-      // Opera 8.0+, Firefox, Safari
-      ajaxRequest = new XMLHttpRequest();
-   }catch (e){
-      
-      // Internet Explorer Browsers
-      try{
-         ajaxRequest = new ActiveXObject("Msxml2.XMLHTTP");
-      }catch (e) {
-         
-         try{
-            ajaxRequest = new ActiveXObject("Microsoft.XMLHTTP");
-         }catch (e){
-         
-            // Something went wrong
-            alert("Your browser broke!");
-            return false;
-         }
-      }
-   }
-   
-   ajaxRequest.open("GET", "ajax_expired.php", true);
-   ajaxRequest.send(null);
-
+   securePost('ajax_expired.php', {}, function(status, responseText) {
+      // Fire-and-forget style, same as original
+   });
    cmodal("User Removal Success", "Removed all Validity Expired Guest User Accounts from the Registry Successfully.", "success");
 }
 // End of Removing All Expired Guest User Accounts
@@ -355,50 +268,59 @@ function ajaxExpired() {
 <script>
 //System User - Password reset option for System Users, Calling From Menu option SYSTEM USERS
 function resetpass(oForm){ 
-	user_id = oForm.elements["user_id"].value;
-  
-   var ajaxRequest;  // The variable that makes Ajax possible!
-   try{
-   
-      // Opera 8.0+, Firefox, Safari
-      ajaxRequest = new XMLHttpRequest();
-   }catch (e){
-      
-      // Internet Explorer Browsers
-      try{
-         ajaxRequest = new ActiveXObject("Msxml2.XMLHTTP");
-      }catch (e) {
-         
-         try{
-            ajaxRequest = new ActiveXObject("Microsoft.XMLHTTP");
-         }catch (e){
-         
-            // Something went wrong
-            alert("Your browser broke!");
-            return false;
-         }
-      }
-   }
-      ajaxRequest.onreadystatechange = function(){
-   
-      if(ajaxRequest.readyState == 4){
-         var ajaxResult = ajaxRequest.responseText;
-        
-		if (ajaxResult == 0) {
-			cmodal("User Rights Issue",  "User Rights Problem.  Contact Admin for details", "error"); }
-		else if (ajaxResult == 1) {
-			cmodal("NOT EXIST..",  "No such User Exist,  Please re-check ..!", "warning"); }
-		 else if (ajaxResult == 2) {
-			cmodal("User Password Reset Success", "System User Password Reset Successfully", "success"); }
-	  }
+	var user_id = oForm.elements["user_id"].value;
+	var username = oForm.elements["username"].value;
+	
+	if (!confirm('Reset password for user "' + username + '"?\n\nA new temporary password will be generated.')) {
+		return;
+	}
+	
+	$.ajax({
+		url: 'ajax_reset_pass.php',
+		type: 'POST',
+		data: {user_id: user_id, csrf_token: CSRF_TOKEN},
+		dataType: 'json',
+		success: function(data) {
+			if (data.status == 0) {
+				cmodal('Access Denied', 'You do not have permission to reset passwords.', 'error');
+			} else if (data.status == 1) {
+				cmodal('User Not Found', 'No such user exists. Please re-check.', 'warning');
+			} else if (data.status == 2) {
+				// Show the temporary password in a clear, copyable modal
+				var html = '<div style="text-align:center; padding:10px;">' +
+					'<p style="margin-bottom:15px;">Password for <strong>' + data.username + '</strong> has been reset.</p>' +
+					'<div style="background:#f0f8ff; border:2px dashed #667eea; border-radius:10px; padding:20px; margin:15px 0;">' +
+					'<label style="font-size:12px; color:#888; text-transform:uppercase; letter-spacing:1px;">New Temporary Password</label>' +
+					'<div id="temp-pass-display" style="font-size:28px; font-weight:700; font-family:monospace; color:#333; letter-spacing:3px; margin:10px 0; user-select:all;">' + data.temp_password + '</div>' +
+					'<button onclick="copyTempPassword()" class="btn btn-sm btn-primary" style="margin-top:5px;"><i class="fa fa-copy"></i> Copy to Clipboard</button>' +
+					'</div>' +
+					'<p style="color:#d9534f; font-size:12px; margin-top:10px;"><i class="fa fa-exclamation-triangle"></i> Write this down! It will not be shown again.</p>' +
+					'</div>';
+				cmodal('Password Reset Successful', html, 'success');
+			}
+		},
+		error: function(xhr, status, error) {
+			cmodal('Error', 'Failed to reset password: ' + error, 'error');
+		}
+	});
+}
 
-   }
- 
-   var queryString = "?user_id=" + user_id ;
-
-   ajaxRequest.open("GET", "ajax_reset_pass.php" + queryString, true);
-   ajaxRequest.send(null);
-   
+function copyTempPassword() {
+	var pass = document.getElementById('temp-pass-display').innerText;
+	if (navigator.clipboard) {
+		navigator.clipboard.writeText(pass).then(function() {
+			alert('Password copied to clipboard!');
+		});
+	} else {
+		// Fallback for older browsers
+		var temp = document.createElement('textarea');
+		temp.value = pass;
+		document.body.appendChild(temp);
+		temp.select();
+		document.execCommand('copy');
+		document.body.removeChild(temp);
+		alert('Password copied to clipboard!');
+	}
 }
 </script>
 
@@ -412,51 +334,21 @@ function addsysuser(oForm) {
 	var lastname = oForm.elements["lastname"].value;
 	var user_level = oForm.elements["user_level"].value;
 	var status = oForm.elements["status"].value;
-	
-   var ajaxRequest;  // The variable that makes Ajax possible!
-   try{
-   
-      // Opera 8.0+, Firefox, Safari
-      ajaxRequest = new XMLHttpRequest();
-   }catch (e){
-      
-      // Internet Explorer Browsers
-      try{
-         ajaxRequest = new ActiveXObject("Msxml2.XMLHTTP");
-      }catch (e) {
-         
-         try{
-            ajaxRequest = new ActiveXObject("Microsoft.XMLHTTP");
-         }catch (e){
-         
-            // Something went wrong
-            alert("Your browser broke!");
-            return false;
-         }
-      }
-   }
-   
-      ajaxRequest.onreadystatechange = function(){
-   
-      if(ajaxRequest.readyState == 4){
-         var ajaxResult = ajaxRequest.responseText;
-        
+
+	securePost('ajax_add_sysuser.php', {
+		username: username,
+		firstname: firstname,
+		lastname: lastname,
+		user_level: user_level,
+		status: status
+	}, function(statusCode, ajaxResult) {
 		if (ajaxResult == 0) {
 			cmodal("User Rights Issue",  "User Rights Problem/Empty Username.  Contact Admin for details", "error"); }
 		else if (ajaxResult == 1) {
 			cmodal("Already Exist..",  "Username Already Exist,  Please select another Name..!", "warning"); }
 		 else if (ajaxResult == 2) {
 			cmodal("Success..",  "New System User Created Successfully..!", "success"); }
-	  }
-
-   }
-
-	var queryString = "?username=" + username ;
-   
-	queryString +=  "&username=" + username + "&firstname=" + firstname + "&lastname=" + lastname + "&user_level=" + user_level + "&status=" + status;
-	ajaxRequest.open("GET", "ajax_add_sysuser.php" + queryString, true);
-	ajaxRequest.send(null);
-   
+	});
 }
 //System User - End of Adding a New System User;
 </script>
@@ -464,46 +356,13 @@ function addsysuser(oForm) {
 //System User - Removes a System User
 function deleteuser(oForm) { 
 	user_id = oForm.elements["user_id"].value;
-   var ajaxRequest;  // The variable that makes Ajax possible!
-   try{
-   
-      // Opera 8.0+, Firefox, Safari
-      ajaxRequest = new XMLHttpRequest();
-   }catch (e){
-      
-      // Internet Explorer Browsers
-      try{
-         ajaxRequest = new ActiveXObject("Msxml2.XMLHTTP");
-      }catch (e) {
-         
-         try{
-            ajaxRequest = new ActiveXObject("Microsoft.XMLHTTP");
-         }catch (e){
-         
-            // Something went wrong
-            alert("Your browser broke!");
-            return false;
-         }
-      }
-   }
-   
-         ajaxRequest.onreadystatechange = function(){
-   
-      if(ajaxRequest.readyState == 4){
-         var ajaxResult = ajaxRequest.responseText;
-        
+
+	securePost('ajax_del_sysuser.php', {user_id: user_id}, function(statusCode, ajaxResult) {
 		if (ajaxResult == 0) {
 			cmodal("User Rights Issue",  "User Rights Problem.  Contact Admin for details", "error"); }
 		else if (ajaxResult == 1) {
 			cmodal("Removed User..",  "User details removed Successfully..!", "success"); }
-	  }
-
-   }
-
-   var queryString = "?user_id=" + user_id ;
-
-   ajaxRequest.open("GET", "ajax_del_sysuser.php" + queryString, true);
-   ajaxRequest.send(null);
+	});
 }
 </script>
 
@@ -516,51 +375,22 @@ function edituser(oForm) {
 	var lastname = oForm.elements["lastname"].value;
 	var user_level = oForm.elements["user_level"].value;
 	var status = oForm.elements["status"].value;
-	
-   var ajaxRequest;  // The variable that makes Ajax possible!
-   try{
-   
-      // Opera 8.0+, Firefox, Safari
-      ajaxRequest = new XMLHttpRequest();
-   }catch (e){
-      
-      // Internet Explorer Browsers
-      try{
-         ajaxRequest = new ActiveXObject("Msxml2.XMLHTTP");
-      }catch (e) {
-         
-         try{
-            ajaxRequest = new ActiveXObject("Microsoft.XMLHTTP");
-         }catch (e){
-         
-            // Something went wrong
-            alert("Your browser broke!");
-            return false;
-         }
-      }
-   }
-   
-     ajaxRequest.onreadystatechange = function(){
-   
-      if(ajaxRequest.readyState == 4){
-         var ajaxResult = ajaxRequest.responseText;
-        
+
+	securePost('ajax_edit_sysuser.php', {
+		user_id: user_id,
+		username: username,
+		firstname: firstname,
+		lastname: lastname,
+		user_level: user_level,
+		status: status
+	}, function(statusCode, ajaxResult) {
 		if (ajaxResult == 0) {
 			cmodal("User Rights Issue",  "User Rights Problem/Empty Username.  Contact Admin for details", "error"); }
 		else if (ajaxResult == 1) {
 			cmodal("Already Exist..",  "Username Already Exist,  Please select another Name..!", "warning"); }
 		 else if (ajaxResult == 2) {
 			cmodal("Success..",  "Updated System User details Successfully..!", "success"); }
-	  }
-
-   }
-
-   var queryString = "?user_id=" + user_id ;
-   
-   queryString +=  "&username=" + username + "&firstname=" + firstname + "&lastname=" + lastname + "&user_level=" + user_level + "&status=" + status;
-   ajaxRequest.open("GET", "ajax_edit_sysuser.php" + queryString, true);
-   ajaxRequest.send(null);
-   
+	});
 }
 </script>
 <script>
@@ -620,10 +450,11 @@ function changePass(oForm) {
 
    }
   
-		var queryString = "?np=" + np ;
-		queryString +=  "&rp=" + rp;
-		ajaxRequest.open("GET", "ajax_change_syspass.php" + queryString, true);
-		ajaxRequest.send(null);
+		// SECURITY: Send password via POST body (not GET URL)
+		var formData = new FormData();
+		formData.append('np', np);
+		ajaxRequest.open("POST", "ajax_change_syspass.php", true);
+		ajaxRequest.send(formData);
 	}
 	
 }	
@@ -678,9 +509,9 @@ $('#getUserModal').on('show.bs.modal', function (event)   {
           {
             $.ajax(
             {  
-                type: 'GET',
-                url: "ajax_get_sysuser.php?user_id=" + recipient,             
-                data: 'recipient',
+                type: 'POST',
+                url: "ajax_get_sysuser.php",             
+                data: {user_id: recipient, csrf_token: CSRF_TOKEN},
                 dataType: "json",
                 success: function(data) 
                 {
@@ -716,9 +547,9 @@ $('#getProfileModal').on('show.bs.modal', function (event)   {
           {
             $.ajax(
             {  
-                type: 'GET',
-                url: "ajax_get_profiles.php?profile_name=" + profile_name,             
-                //data: profile_name,
+                type: 'POST',
+                url: "ajax_get_profiles.php",             
+                data: {profile_name: profile_name, csrf_token: CSRF_TOKEN},
                 dataType: "json",
                 success: function(data) 
                 {
@@ -783,56 +614,28 @@ function addprofile(oForm) {
 	var On_expiry = oForm.elements["on_expiry"].value;
 	var Price = oForm.elements["price"].value;
 	var Lock_user = oForm.elements["lock_user"].value;
-	
-   var ajaxRequest;  // The variable that makes Ajax possible!
-   try{
-   
-      // Opera 8.0+, Firefox, Safari
-      ajaxRequest = new XMLHttpRequest();
-   }catch (e){
-      
-      // Internet Explorer Browsers
-      try{
-         ajaxRequest = new ActiveXObject("Msxml2.XMLHTTP");
-      }catch (e) {
-         
-         try{
-            ajaxRequest = new ActiveXObject("Microsoft.XMLHTTP");
-         }catch (e){
-         
-            // Something went wrong
-            alert("Your browser broke!");
-            return false;
-         }
-      }
-   }
-   
-      ajaxRequest.onreadystatechange = function(){
-   
-      if(ajaxRequest.readyState == 4){
-         var ajaxResult = ajaxRequest.responseText;
-        //console.log ("Log = " + ajaxResult);
-		
+
+	securePost('ajax_add_profile.php', {
+		profile_name: Profile_name,
+		session_timeout: Session_timeout,
+		shared_users: Shared_users,
+		mac_cookie_timeout: Mac_cookie_timeout,
+		keepalive_timeout: Keepalive_timeout,
+		rx_rate_limit: Rx_rate_limit,
+		tx_rate_limit: Tx_rate_limit,
+		validity: Validity,
+		grace_period: Grace_period,
+		on_expiry: On_expiry,
+		price: Price,
+		lock_user: Lock_user
+	}, function(statusCode, ajaxResult) {
 		if (ajaxResult == 0) {
 			cmodal("User Rights Issue",  "User Rights Problem, Not Authorised to.  Contact Admin for details", "error"); }
 		else if (ajaxResult == 1) {
 			cmodal("Empty Values",  "Blank Profile Name Not Permitted,  Please Fill required Fields and Proceed..!", "warning"); }
 		 else if (ajaxResult == 2) {
 			cmodal("Completed..",  "New Hotspot User Profile Creation Attempt Completed..!", "success"); }
-	  }
-
-   }
-
-	var queryString = "?profile_name=" + Profile_name ;
-   
-	queryString += "&session_timeout=" + Session_timeout;
-	queryString +=  "&shared_users=" + Shared_users + "&mac_cookie_timeout=" + Mac_cookie_timeout + "&keepalive_timeout=" + Keepalive_timeout;
-	queryString += "&rx_rate_limit=" + Rx_rate_limit + "&tx_rate_limit=" + Tx_rate_limit;
-	queryString += "&validity=" + Validity + "&grace_period=" + Grace_period;
-	queryString += "&on_expiry=" + On_expiry + "&price=" + Price + "&lock_user=" + Lock_user;
-	ajaxRequest.open("GET", "ajax_add_profile.php" + queryString, true);
-	ajaxRequest.send(null);
-   
+	});
 }
 //Guest User Profile - End of Adding a New User profile;
 </script>
@@ -842,51 +645,15 @@ function deleteprofile(oForm) {
 	//$('#system-user').modal('hide');
 
 	var Profile_name = oForm.elements["profile_name"].value;
-	
-   var ajaxRequest;  // The variable that makes Ajax possible!
-   try{
-   
-      // Opera 8.0+, Firefox, Safari
-      ajaxRequest = new XMLHttpRequest();
-   }catch (e){
-      
-      // Internet Explorer Browsers
-      try{
-         ajaxRequest = new ActiveXObject("Msxml2.XMLHTTP");
-      }catch (e) {
-         
-         try{
-            ajaxRequest = new ActiveXObject("Microsoft.XMLHTTP");
-         }catch (e){
-         
-            // Something went wrong
-            alert("Your browser broke!");
-            return false;
-         }
-      }
-   }
-   
-      ajaxRequest.onreadystatechange = function(){
-   
-      if(ajaxRequest.readyState == 4){
-         var ajaxResult = ajaxRequest.responseText;
-        //console.log ("Log = " + ajaxResult);
-		
+
+	securePost('ajax_del_profile.php', {profile_name: Profile_name}, function(statusCode, ajaxResult) {
 		if (ajaxResult == 0) {
 			cmodal("User Rights Issue",  "User Rights Problem, Not Authorised to.  Contact Admin for details", "error"); }
 		else if (ajaxResult == 1) {
 			cmodal("Empty Values",  "Blank Profile Name Not Permitted,  Please Select any proper Profile and try..!", "warning"); }
 		 else if (ajaxResult == 2) {
 			cmodal("Completed..",  "Hotspot User Profile Removal attempt Attempt Completed..!", "success"); }
-	  }
-
-   }
-
-	var queryString = "?profile_name=" + Profile_name ;
-   
-	ajaxRequest.open("GET", "ajax_del_profile.php" + queryString, true);
-	ajaxRequest.send(null);
-   
+	});
 }
 //Guest User Profile - End of Deleting a Guest User profile;
 </script>
@@ -908,56 +675,28 @@ function editprofile(oForm) {
 	var On_expiry = oForm.elements["on_expiry"].value;
 	var Price = oForm.elements["price"].value;
 	var Lock_user = oForm.elements["lock_user"].value;
-	
-   var ajaxRequest;  // The variable that makes Ajax possible!
-   try{
-   
-      // Opera 8.0+, Firefox, Safari
-      ajaxRequest = new XMLHttpRequest();
-   }catch (e){
-      
-      // Internet Explorer Browsers
-      try{
-         ajaxRequest = new ActiveXObject("Msxml2.XMLHTTP");
-      }catch (e) {
-         
-         try{
-            ajaxRequest = new ActiveXObject("Microsoft.XMLHTTP");
-         }catch (e){
-         
-            // Something went wrong
-            alert("Your browser broke!");
-            return false;
-         }
-      }
-   }
-   
-      ajaxRequest.onreadystatechange = function(){
-   
-      if(ajaxRequest.readyState == 4){
-         var ajaxResult = ajaxRequest.responseText;
-       // console.log ("Log = " + ajaxResult);
-		
+
+	securePost('ajax_edit_profile.php', {
+		profile_name: Profile_name,
+		session_timeout: Session_timeout,
+		shared_users: Shared_users,
+		mac_cookie_timeout: Mac_cookie_timeout,
+		keepalive_timeout: Keepalive_timeout,
+		rx_rate_limit: Rx_rate_limit,
+		tx_rate_limit: Tx_rate_limit,
+		validity: Validity,
+		grace_period: Grace_period,
+		on_expiry: On_expiry,
+		price: Price,
+		lock_user: Lock_user
+	}, function(statusCode, ajaxResult) {
 		if (ajaxResult == 0) {
 			cmodal("User Rights Issue",  "User Rights Problem, Not Authorised to.  Contact Admin for details", "error"); }
 		else if (ajaxResult == 1) {
 			cmodal("Improper Values",  "Profile Name Not Proper,  Please Select Proper Profile and Proceed..!", "warning"); }
 		 else if (ajaxResult == 2) {
 			cmodal("Completed..",  "Updation of Hotspot User Profile Completed..!", "success"); }
-	  }
-
-   }
-
-	var queryString = "?profile_name=" + Profile_name ;
-   
-	queryString += "&session_timeout=" + Session_timeout;
-	queryString +=  "&shared_users=" + Shared_users + "&mac_cookie_timeout=" + Mac_cookie_timeout + "&keepalive_timeout=" + Keepalive_timeout;
-	queryString += "&rx_rate_limit=" + Rx_rate_limit + "&tx_rate_limit=" + Tx_rate_limit;
-	queryString += "&validity=" + Validity + "&grace_period=" + Grace_period;
-	queryString += "&on_expiry=" + On_expiry + "&price=" + Price + "&lock_user=" + Lock_user;
-	ajaxRequest.open("GET", "ajax_edit_profile.php" + queryString, true);
-	ajaxRequest.send(null);
-   
+	});
 }
 //Guest User Profile - End of Updating a User profile;
 </script>
@@ -966,62 +705,32 @@ function editprofile(oForm) {
 function removeSelected(oForm) { 
 	var Removal1 = oForm.elements['removal_list[]'];
 	var Removal_list = new Array();
-	var queryString = "";
-	var k = 0;
-	//var queryString = "?removal_list[]=";
-   for (var i = 0; i < Removal1.length; i++) {
-    var aControl = Removal1[i].checked;
-	var bControl = Removal1[i].value;
-	if (aControl == true) {
-		Removal_list.push(bControl);
-		if (k == 0) { queryString += "?removal_list[]=" + bControl ; } else { queryString += "&removal_list[]=" + bControl; }
-		k = k + 1;
-	}	
-	//alert("Success : " + aControl + ", : " + bControl);
-   }
-   //alert("Final List : " + Removal_list);
-   
-   
-   var ajaxRequest;  // The variable that makes Ajax possible!
-   try{
-   
-      // Opera 8.0+, Firefox, Safari
-      ajaxRequest = new XMLHttpRequest();
-   }catch (e){
-      
-      // Internet Explorer Browsers
-      try{
-         ajaxRequest = new ActiveXObject("Msxml2.XMLHTTP");
-      }catch (e) {
-         
-         try{
-            ajaxRequest = new ActiveXObject("Microsoft.XMLHTTP");
-         }catch (e){
-         
-            // Something went wrong
-            alert("Your browser broke!");
-            return false;
-         }
-      }
-   }
-   
-      ajaxRequest.onreadystatechange = function(){
-   
-      if(ajaxRequest.readyState == 4){
-         var ajaxResult = ajaxRequest.responseText;
-		
-		if (ajaxResult == 0) {
-			cmodal("User Rights Issue",  "User Rights Problem, Not Authorised....  Contact Admin for details", "error"); }
-		else if (ajaxResult == -1) {
-			cmodal("No Proper Selections",   "No Guest user accounts selected for removal", "warning"); }
-		else {
-			cmodal("Removal Completed..",  ajaxResult + " Guest user accounts removed successfully", "success"); }
-	  }
-   }
-	//var queryString = "?removal_list[]=array(" + Removal_list + ")";
-	ajaxRequest.open("GET", "ajax_rem_selected.php" + queryString, true);
-	ajaxRequest.send(null);
-   
+
+	for (var i = 0; i < Removal1.length; i++) {
+		if (Removal1[i].checked) {
+			Removal_list.push(Removal1[i].value);
+		}
+	}
+
+	var xhr = new XMLHttpRequest();
+	var formData = new FormData();
+	formData.append('csrf_token', CSRF_TOKEN);
+	for (var j = 0; j < Removal_list.length; j++) {
+		formData.append('removal_list[]', Removal_list[j]);
+	}
+	xhr.open('POST', 'ajax_rem_selected.php', true);
+	xhr.onreadystatechange = function() {
+		if (xhr.readyState === 4) {
+			var ajaxResult = xhr.responseText;
+			if (ajaxResult == 0) {
+				cmodal("User Rights Issue",  "User Rights Problem, Not Authorised....  Contact Admin for details", "error"); }
+			else if (ajaxResult == -1) {
+				cmodal("No Proper Selections",   "No Guest user accounts selected for removal", "warning"); }
+			else {
+				cmodal("Removal Completed..",  ajaxResult + " Guest user accounts removed successfully", "success"); }
+		}
+	};
+	xhr.send(formData);
 }
 </script>
 </head>

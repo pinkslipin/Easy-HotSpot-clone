@@ -4,11 +4,14 @@ use PEAR2\Net\RouterOS;
 require_once 'PEAR2/Autoload.php';
 require_once 'config.php';
 
+require_once 'security_helper.php';
+secure_session_start();
+require_admin();
+csrf_require();
 $util = new RouterOS\Util($client = new RouterOS\Client("$host", "$user", "$pass"));
-if ( !isset($_SESSION) ) session_start();
-if ($_SESSION['user_level'] == 1) {
+if (true) {
 	$util->setMenu('/ip hotspot user profile print');
-	$profile_name=$_GET['profile_name'];
+	$profile_name=$_POST['profile_name'];
 	
 	$printRequest = new RouterOS\Request('/ip hotspot user profile print');
 	$printRequest->setArgument('.proplist', '.id,name,address-pool,rate-limit,session-timeout,shared-users,mac-cookie-timeout,keepalive-timeout,on-login');

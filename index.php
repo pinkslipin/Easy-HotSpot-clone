@@ -5,15 +5,21 @@
 // Suppress deprecation warnings for PHP 8.x compatibility
 error_reporting(E_ALL & ~E_DEPRECATED);
 
-//Start session
-if ( !isset($_SESSION) ) session_start();
+// SECURITY: Use hardened session + send security headers
+require_once 'security_helper.php';
+secure_session_start();
+
+// SECURITY: HTTP security headers
+header('X-Frame-Options: DENY');
+header('X-Content-Type-Options: nosniff');
+header('X-XSS-Protection: 1; mode=block');
+header('Referrer-Policy: strict-origin-when-cross-origin');
+
 //Check whether the session variables present or not, and assign them to Ordinary variables, if present.
 if (!isset($_SESSION['user_level']) || (trim($_SESSION['user_level']) == '' || (trim($_SESSION['user_level']) >= 4))) {
     header("location:login.php");
 }
 ?>
-
-<?php if ( !isset($_SESSION) ) session_start(); ?>
 
 <?php include('header.php'); ?>
 <?php include('dbconfig.php'); ?>
@@ -41,12 +47,14 @@ if (defined('MOCK_MODE') && MOCK_MODE === true) {
 			$client = $connection['client'];
 			include_once('home.php');
 		} else {
-			echo "Error Accessing Data: " . $connection['error'];
+			error_log('Router connection error: ' . $connection['error']);
+			echo 'Error Accessing Data. Check router settings.';
 			include_once('settings.php');
 		}
 	}
 	catch (Exception $e) {
-		echo "Error Accessing Data: " . $e->getMessage();
+		error_log('Router error: ' . $e->getMessage());
+		echo 'Error Accessing Data. Check router settings.';
 		include_once('settings.php');
 	}
 }

@@ -64,19 +64,87 @@ class MockRouterUtil implements \Countable {
                 $items[] = new MockResponse($profile);
             }
         } elseif (strpos($this->menu, 'active') !== false) {
-            foreach ($this->data['active'] as $active) {
-                $items[] = new MockResponse($active);
-            }
+            // In mock mode, show vouchers with status='Active' that have been used (uptime > 0)
+            $items = $this->getActiveUsersFromDB();
         } elseif (strpos($this->menu, 'user') !== false) {
-            foreach ($this->data['users'] as $user) {
-                $items[] = new MockResponse($user);
-            }
+            // In mock mode, pull users from database so they stay in sync with voucher creation
+            $items = $this->getUsersFromDB();
         } elseif (strpos($this->menu, 'log') !== false) {
             foreach (array_slice($this->data['log'], -50) as $log) {
                 $items[] = new MockResponse($log);
             }
         }
         
+        return $items;
+    }
+    
+    /**
+     * Pull voucher users from the database (syncs mock user list with DB)
+     */
+    private function getUsersFromDB() {
+        $items = [];
+        try {
+            require_once __DIR__ . '/dbconfig.php';
+            global $DB_con;
+            $stmt = $DB_con->prepare("SELECT user_name, package_name, limit_uptime, price, status, 
+                                             created_on, batch_id, limit_bytes, profile
+                                      FROM hotspot_vouchers ORDER BY created_on DESC");
+            $stmt->execute();
+            while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+                $limitUptime = $row['limit_uptime'] ?: 'Not Limited';
+                $profileName = $row['profile'] ?: 'default';
+                $items[] = new MockResponse([
+                    '.id'               => '*' . crc32($row['user_name']),
+                    'name'              => $row['user_name'],
+                    'profile'           => $profileName,
+                    'limit-uptime'      => $limitUptime,
+                    'limit-bytes-total' => $row['limit_bytes'] ? $row['limit_bytes'] : null,
+                    'uptime'            => ($row['status'] === 'Active') ? '0s' : '1h',
+                    'bytes-in'          => '0',
+                    'bytes-out'         => '0',
+                    'comment'           => 'PKG:' . ($row['package_name'] ?? ''),
+                    'server'            => 'hotspot1',
+                ]);
+            }
+        } catch (\Exception $e) {
+            // Fall back to JSON data if DB fails
+            foreach ($this->data['users'] as $user) {
+                $items[] = new MockResponse($user);
+            }
+        }
+        return $items;
+    }
+    
+    /**
+     * Pull active sessions from the database (vouchers with status 'Active')
+     */
+    private function getActiveUsersFromDB() {
+        $items = [];
+        try {
+            require_once __DIR__ . '/dbconfig.php';
+            global $DB_con;
+            $stmt = $DB_con->prepare("SELECT user_name, package_name, limit_uptime, created_on
+                                      FROM hotspot_vouchers 
+                                      WHERE status = 'Active' 
+                                      ORDER BY created_on DESC");
+            $stmt->execute();
+            while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+                $items[] = new MockResponse([
+                    '.id'                => '*' . crc32($row['user_name']),
+                    'server'             => 'hotspot1',
+                    'domain'             => 'mindspace',
+                    'user'               => $row['user_name'],
+                    'address'            => '192.168.88.' . rand(10, 250),
+                    'uptime'             => '0s',
+                    'session-time-left'  => $row['limit_uptime'] ?: 'unlimited',
+                ]);
+            }
+        } catch (\Exception $e) {
+            // Fall back to JSON data if DB fails
+            foreach ($this->data['active'] as $active) {
+                $items[] = new MockResponse($active);
+            }
+        }
         return $items;
     }
     
@@ -147,7 +215,17 @@ class MockRouterUtil implements \Countable {
         if (strpos($this->menu, 'profile') !== false) {
             return count($this->data['profiles']);
         }
-        return count($this->data['users']);
+        // Use DB count for users in mock mode
+        try {
+            require_once __DIR__ . '/dbconfig.php';
+            global $DB_con;
+            $stmt = $DB_con->prepare("SELECT COUNT(*) as cnt FROM hotspot_vouchers");
+            $stmt->execute();
+            $row = $stmt->fetch(\PDO::FETCH_ASSOC);
+            return (int)$row['cnt'];
+        } catch (\Exception $e) {
+            return count($this->data['users']);
+        }
     }
 }
 

@@ -2,16 +2,12 @@
 /**
  * Sales Dashboard - Track daily/weekly/monthly sales and voucher statistics
  */
-if (!isset($_SESSION)) session_start();
+require_once 'security_helper.php';
+secure_session_start();
+require_auth();
 require_once 'dbconfig.php';
 require_once 'pricing_config.php';
 require_once 'expiry_check.php';
-
-// Check if user is logged in
-if (!isset($_SESSION['username'])) {
-    header('Location: login.php');
-    exit;
-}
 
 /**
  * Get sales data for a specific period
@@ -55,7 +51,8 @@ function getSalesData($period = 'today') {
 }
 
 /**
- * Get sales by time tier
+ * Get sales by package/tier
+ * Uses package_id for new vouchers, falls back to limit_uptime for old vouchers
  */
 function getSalesByTier($period = 'month') {
     global $DB_con;
@@ -74,13 +71,16 @@ function getSalesByTier($period = 'month') {
     }
     
     try {
+        // Group by package_id if available, otherwise limit_uptime
         $stmt = $DB_con->prepare("SELECT 
+            COALESCE(package_id, limit_uptime) as package_key,
+            package_name,
             limit_uptime,
             COUNT(*) as count,
             COALESCE(SUM(price), 0) as revenue
             FROM hotspot_vouchers 
             WHERE $where
-            GROUP BY limit_uptime
+            GROUP BY COALESCE(package_id, limit_uptime), package_name, limit_uptime
             ORDER BY count DESC");
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -120,6 +120,8 @@ function getBatchStats() {
     try {
         $stmt = $DB_con->prepare("SELECT 
             batch_id,
+            COALESCE(package_id, limit_uptime) as package_key,
+            package_name,
             limit_uptime,
             COUNT(*) as total,
             COUNT(CASE WHEN status = 'Active' THEN 1 END) as active,
@@ -128,7 +130,7 @@ function getBatchStats() {
             MIN(created_on) as created
             FROM hotspot_vouchers 
             WHERE batch_id IS NOT NULL
-            GROUP BY batch_id, limit_uptime
+            GROUP BY batch_id, COALESCE(package_id, limit_uptime), package_name, limit_uptime
             ORDER BY created DESC
             LIMIT 10");
         $stmt->execute();
@@ -139,7 +141,9 @@ function getBatchStats() {
 }
 
 // Get current period from request
-$period = isset($_GET['period']) ? $_GET['period'] : 'today';
+// SECURITY: Validate period against allowlist
+$allowed_periods = ['today', 'yesterday', 'week', 'month', 'all'];
+$period = isset($_GET['period']) && in_array($_GET['period'], $allowed_periods, true) ? $_GET['period'] : 'today';
 $todayData = getSalesData('today');
 $weekData = getSalesData('week');
 $monthData = getSalesData('month');
@@ -373,7 +377,7 @@ checkExpiredVouchers();
     <!-- Header -->
     <div class="no_print text-center" style="margin-bottom: 30px;">
         <h1 style="color: #333; font-weight: 700;"><i class="fa fa-line-chart"></i> Sales Dashboard</h1>
-        <p style="color: #666;">Monitor your café WiFi voucher sales and statistics</p>
+        <p style="color: #666;">Monitor MindSpace WiFi voucher sales and statistics</p>
         <div style="margin-top: 15px;">
             <a href="index.php" class="nav-button primary"><i class="fa fa-home"></i> Main Menu</a>
             <a href="voucher.php" class="nav-button secondary"><i class="fa fa-print"></i> Print Vouchers</a>
@@ -463,14 +467,18 @@ checkExpiredVouchers();
     <div class="row">
         <div class="col-md-6">
             <div class="dashboard-section">
-                <h4><i class="fa fa-pie-chart"></i> Sales by Time Tier (Last 30 Days)</h4>
+                <h4><i class="fa fa-pie-chart"></i> Sales by Package (Last 30 Days)</h4>
                 <?php if (empty($tierData)): ?>
                     <p class="text-muted text-center">No sales data available</p>
                 <?php else: ?>
                     <div style="text-align: center;">
-                        <?php foreach ($tierData as $tier): ?>
+                        <?php foreach ($tierData as $tier): 
+                            // Use package_name if available, otherwise try to look up by package_key, finally fall back to limit_uptime
+                            $displayName = !empty($tier['package_name']) ? $tier['package_name'] : 
+                                (getPackageDisplayName($tier['package_key']) ?: getUptimeName($tier['limit_uptime']));
+                        ?>
                             <div class="tier-badge">
-                                <?php echo getUptimeName($tier['limit_uptime']); ?>
+                                <?php echo htmlspecialchars($displayName); ?>
                                 <span class="tier-count"><?php echo $tier['count']; ?> sold</span>
                                 <br><small><?php echo formatPrice($tier['revenue']); ?></small>
                             </div>
@@ -515,7 +523,7 @@ checkExpiredVouchers();
                     <thead>
                         <tr>
                             <th>Batch ID</th>
-                            <th>Time Tier</th>
+                            <th>Package</th>
                             <th>Total</th>
                             <th>Active</th>
                             <th>Used</th>
@@ -525,11 +533,15 @@ checkExpiredVouchers();
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($batchStats as $batch): ?>
-                            <?php $usagePercent = $batch['total'] > 0 ? ($batch['used'] / $batch['total'] * 100) : 0; ?>
+                        <?php foreach ($batchStats as $batch): 
+                            $usagePercent = $batch['total'] > 0 ? ($batch['used'] / $batch['total'] * 100) : 0;
+                            // Use package_name if available, otherwise try to look up by package_key, finally fall back to limit_uptime
+                            $displayName = !empty($batch['package_name']) ? $batch['package_name'] : 
+                                (getPackageDisplayName($batch['package_key']) ?: getUptimeName($batch['limit_uptime']));
+                        ?>
                             <tr>
                                 <td><strong><?php echo htmlspecialchars($batch['batch_id']); ?></strong></td>
-                                <td><?php echo getUptimeName($batch['limit_uptime']); ?></td>
+                                <td><?php echo htmlspecialchars($displayName); ?></td>
                                 <td><?php echo $batch['total']; ?></td>
                                 <td><span style="color: #72bf48;"><?php echo $batch['active']; ?></span></td>
                                 <td><span style="color: #28ABE3;"><?php echo $batch['used']; ?></span></td>

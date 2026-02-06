@@ -1,4 +1,6 @@
 <?php
+require_once 'dbconfig.php';
+
 $stmt = $DB_con->prepare("SET SQL_MODE = 'NO_AUTO_VALUE_ON_ZERO'");
 $stmt->execute(array());
 
@@ -18,21 +20,14 @@ $stmt = $DB_con->prepare("CREATE TABLE IF NOT EXISTS `hotspot_users` (
   `user_group` int(1) NOT NULL,
   `image_path` varchar(50) NOT NULL,
   `thumb_path` varchar(50) NOT NULL,
-  `status` varchar(20) NOT NULL
+  `status` varchar(20) NOT NULL,
+  PRIMARY KEY (`user_id`),
+  KEY `username` (`username`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8");
-$stmt->execute(array());
-
-$stmt = $DB_con->prepare("ALTER TABLE `hotspot_users`
-  ADD PRIMARY KEY (`user_id`),
-  ADD KEY `username` (`username`)");
-$stmt->execute(array());
-
-$stmt = $DB_con->prepare("ALTER TABLE `hotspot_users`
-  MODIFY `user_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1");
-$stmt->execute(array());
+try { $stmt->execute(array()); } catch (Exception $e) { /* Table may already exist */ }
 
 $stmt = $DB_con->prepare("CREATE TABLE IF NOT EXISTS `hotspot_vouchers` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `created_on` datetime DEFAULT NULL,
   `created_by` varchar(30) DEFAULT NULL,
   `creator` int(3) DEFAULT NULL,
@@ -49,11 +44,12 @@ $stmt = $DB_con->prepare("CREATE TABLE IF NOT EXISTS `hotspot_vouchers` (
   `uid` VARCHAR(30) NOT NULL,
   `batch_id` VARCHAR(50) DEFAULT NULL,
   `price` DECIMAL(10,2) DEFAULT 0.00,
-  `expires_on` datetime DEFAULT NULL
+  `expires_on` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8");
-$stmt->execute(array());
+try { $stmt->execute(array()); } catch (Exception $e) { /* Table may already exist */ }
 
--- Add new columns if they dont exist (for existing databases)
+// Add new columns if they dont exist (for existing databases)
 $stmt = $DB_con->prepare("ALTER TABLE `hotspot_vouchers` ADD COLUMN IF NOT EXISTS `batch_id` VARCHAR(50) DEFAULT NULL");
 try { $stmt->execute(array()); } catch (Exception $e) { /* Column may already exist */ }
 $stmt = $DB_con->prepare("ALTER TABLE `hotspot_vouchers` ADD COLUMN IF NOT EXISTS `price` DECIMAL(10,2) DEFAULT 0.00");
@@ -61,11 +57,14 @@ try { $stmt->execute(array()); } catch (Exception $e) { /* Column may already ex
 $stmt = $DB_con->prepare("ALTER TABLE `hotspot_vouchers` ADD COLUMN IF NOT EXISTS `expires_on` DATETIME DEFAULT NULL");
 try { $stmt->execute(array()); } catch (Exception $e) { /* Column may already exist */ }
 
-$stmt = $DB_con->prepare("ALTER TABLE `hotspot_vouchers`
-  ADD PRIMARY KEY (`id`)");
-$stmt->execute(array());
+// Package-based pricing columns (added for new pricing system)
+$stmt = $DB_con->prepare("ALTER TABLE `hotspot_vouchers` ADD COLUMN IF NOT EXISTS `package_id` VARCHAR(50) DEFAULT NULL");
+try { $stmt->execute(array()); } catch (Exception $e) { /* Column may already exist */ }
+$stmt = $DB_con->prepare("ALTER TABLE `hotspot_vouchers` ADD COLUMN IF NOT EXISTS `package_name` VARCHAR(100) DEFAULT NULL");
+try { $stmt->execute(array()); } catch (Exception $e) { /* Column may already exist */ }
+$stmt = $DB_con->prepare("ALTER TABLE `hotspot_vouchers` ADD COLUMN IF NOT EXISTS `package_type` VARCHAR(20) DEFAULT NULL");
+try { $stmt->execute(array()); } catch (Exception $e) { /* Column may already exist */ }
 
-$stmt = $DB_con->prepare("ALTER TABLE `hotspot_vouchers`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT");
-$stmt->execute(array());
+echo "<h2 style='color: green;'>✓ Database initialized successfully!</h2>";
+echo "<p><a href='reset_admin.php'>Next: Reset Admin Password</a></p>";
 ?>

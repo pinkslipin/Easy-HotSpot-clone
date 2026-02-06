@@ -1,7 +1,47 @@
 <?php
 // Start session FIRST before any HTML output
-if ( !isset($_SESSION) ) session_start();
+if (session_status() === PHP_SESSION_NONE) session_start();
 require_once 'pricing_config.php';
+// packages_config.php is now loaded via pricing_config.php
+
+/**
+ * Get display name for a voucher row
+ * Prefers package_name, falls back to limit_uptime
+ */
+function getVoucherDisplayName($row) {
+	// First try package_name (stored with voucher)
+	if (!empty($row['package_name'])) {
+		return $row['package_name'];
+	}
+	// Then try package_id lookup
+	if (!empty($row['package_id'])) {
+		return getPackageDisplayName($row['package_id']);
+	}
+	// Fall back to limit_uptime for old vouchers
+	if (!empty($row['limit_uptime'])) {
+		return getUptimeName($row['limit_uptime']);
+	}
+	return 'Unknown';
+}
+
+/**
+ * Get display price for a voucher row
+ */
+function getVoucherDisplayPrice($row) {
+	// First try stored price
+	if (isset($row['price']) && $row['price'] > 0) {
+		return $row['price'];
+	}
+	// Then try package_id lookup
+	if (!empty($row['package_id'])) {
+		return getPackagePrice($row['package_id']);
+	}
+	// Fall back to limit_uptime lookup for old vouchers
+	if (!empty($row['limit_uptime'])) {
+		return getVoucherPrice($row['limit_uptime']);
+	}
+	return 0;
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -28,14 +68,17 @@ include ('header.php');
 										<option value="ALL">All Active Vouchers</option>
 										<?php
 										include('dbconfig.php');
-										$batch_stmt = $DB_con->prepare("SELECT DISTINCT batch_id, limit_uptime, COUNT(*) as count, MIN(created_on) as created 
+										$batch_stmt = $DB_con->prepare("SELECT DISTINCT batch_id, limit_uptime, package_id, package_name, COUNT(*) as count, MIN(created_on) as created 
 											FROM hotspot_vouchers 
 											WHERE status = 'Active' AND batch_id IS NOT NULL 
-											GROUP BY batch_id, limit_uptime 
+											GROUP BY batch_id, limit_uptime, package_id, package_name 
 											ORDER BY created DESC");
 										$batch_stmt->execute();
 										while ($batch = $batch_stmt->fetch(PDO::FETCH_ASSOC)) {
-											$batch_label = $batch['batch_id'] . ' (' . $batch['count'] . ' vouchers, ' . $batch['limit_uptime'] . ')';
+											// Display package name if available, otherwise limit_uptime
+											$pkg_display = !empty($batch['package_name']) ? $batch['package_name'] : 
+												(!empty($batch['package_id']) ? getPackageDisplayName($batch['package_id']) : $batch['limit_uptime']);
+											$batch_label = $batch['batch_id'] . ' (' . $batch['count'] . ' vouchers, ' . $pkg_display . ')';
 											echo '<option value="' . htmlspecialchars($batch['batch_id']) . '">' . htmlspecialchars($batch_label) . '</option>';
 										}
 										?>
@@ -43,40 +86,14 @@ include ('header.php');
 								</div>
 							</div>
 							
-							<div class="form-group">
-								<div class="col-xs-4">
-									<img src="images/shot1.png" width="240" height="100" class="center">
-									<button name="voucher1" id="voucher1" class="btn btn-success center-element"  tabindex="1" title="Single Account Per Row(Plain List)">Single Account Per Row(Plain List)</button></a>
-								</div>
-								<div class="col-xs-4">
-									<img src="images/shot2.png" width="240" height="100" class="center">
-									<button name="voucher2" id="voucher2" class="btn btn-primary center-element"  tabindex="2" title="2 Accounts per Row(Plain List)">2 Accounts per Row(Plain List)</button>
-								</div>
-								<div class="col-xs-4">
-									<img src="images/shot3.png" width="240" height="100" class="center">
-									<button name="voucher3" id="voucher3"  class="btn btn-info center-element" title="Only use with Accounts having same username and password" tabindex="3">3 Accounts per Row(Plain List)</button>
-								</div>
-							</div>
-							<div class="form-group">
-								<div class="col-xs-4">
-									<img src="images/shot4.png" width="240" height="100" class="center">
-									<button name="voucher4" id="voucher4" class="btn btn-danger center-element" tabindex="4" title="2 Rows for Single Account(Plain List)">2 Rows for Single Account(Plain List)</button>
-								</div>
-								<div class="col-xs-4">
-									<img src="images/shot5.png" width="240" height="100" class="center">
-									<button name="voucher5" id="voucher5" class="btn btn-warning center-element" tabindex="5" title="Single Voucher/row - ID Card Format, Suitable for printing on envelope type sheets">Single Voucher/row - ID Card Format</button>
-								</div>
-								<div class="col-xs-4">
-									<img src="images/shot6.png" width="240" height="100" class="center">
-									<button name="voucher6" id="voucher6" class="btn btn-primary center-element" tabindex="5" title="3 Vouchers/row - ID Card Format, Suitable for printing on A4/similar size Sheets">3 Vouchers/row - ID Card Format</button>
-								</div>
-							</div>
-							<div class="form-group">
+							<!-- PRIMARY VOUCHER STYLES -->
+							<div class="row" style="margin-bottom: 20px;">
 								<div class="col-xs-6">
 									<div class="panel panel-success">
 										<div class="panel-heading text-center"><strong><i class="fa fa-coffee"></i> Café Style with Price</strong></div>
 										<div class="panel-body text-center">
-											<button name="voucher7" id="voucher7" class="btn btn-success btn-lg center-element" tabindex="6" title="Professional café voucher cards with price display">
+											<p style="color: #666; margin-bottom: 15px;">Professional cards showing package name, price, and validity</p>
+											<button name="voucher7" id="voucher7" class="btn btn-success btn-lg center-element" tabindex="1" title="Professional café voucher cards with price display">
 												<i class="fa fa-coffee"></i> Café Voucher Cards
 											</button>
 										</div>
@@ -86,9 +103,51 @@ include ('header.php');
 									<div class="panel panel-info">
 										<div class="panel-heading text-center"><strong><i class="fa fa-qrcode"></i> With QR Codes</strong></div>
 										<div class="panel-body text-center">
-											<button name="voucher8" id="voucher8" class="btn btn-info btn-lg center-element" tabindex="7" title="Café vouchers with QR codes for easy scanning">
+											<p style="color: #666; margin-bottom: 15px;">Scannable QR codes for easy credential sharing</p>
+											<button name="voucher8" id="voucher8" class="btn btn-info btn-lg center-element" tabindex="2" title="Café vouchers with QR codes for easy scanning">
 												<i class="fa fa-qrcode"></i> QR Code Vouchers
 											</button>
+										</div>
+									</div>
+								</div>
+							</div>
+							
+							<!-- LEGACY FORMATS (Collapsible) -->
+							<div class="panel panel-default">
+								<div class="panel-heading" style="cursor: pointer;" data-toggle="collapse" data-target="#legacy-formats">
+									<h4 class="panel-title">
+										<i class="fa fa-chevron-down"></i> Legacy Plain List Formats (click to expand)
+									</h4>
+								</div>
+								<div id="legacy-formats" class="panel-collapse collapse">
+									<div class="panel-body">
+										<div class="row">
+											<div class="col-xs-4">
+												<img src="images/shot1.png" width="200" height="80" class="center" style="margin-bottom:10px;">
+												<button name="voucher1" id="voucher1" class="btn btn-default btn-sm center-element" tabindex="3">Single Account/Row</button>
+											</div>
+											<div class="col-xs-4">
+												<img src="images/shot2.png" width="200" height="80" class="center" style="margin-bottom:10px;">
+												<button name="voucher2" id="voucher2" class="btn btn-default btn-sm center-element" tabindex="4">2 Accounts/Row</button>
+											</div>
+											<div class="col-xs-4">
+												<img src="images/shot3.png" width="200" height="80" class="center" style="margin-bottom:10px;">
+												<button name="voucher3" id="voucher3" class="btn btn-default btn-sm center-element" tabindex="5">3 Accounts/Row</button>
+											</div>
+										</div>
+										<div class="row" style="margin-top: 15px;">
+											<div class="col-xs-4">
+												<img src="images/shot4.png" width="200" height="80" class="center" style="margin-bottom:10px;">
+												<button name="voucher4" id="voucher4" class="btn btn-default btn-sm center-element" tabindex="6">2 Rows/Account</button>
+											</div>
+											<div class="col-xs-4">
+												<img src="images/shot5.png" width="200" height="80" class="center" style="margin-bottom:10px;">
+												<button name="voucher5" id="voucher5" class="btn btn-default btn-sm center-element" tabindex="7">ID Card Single</button>
+											</div>
+											<div class="col-xs-4">
+												<img src="images/shot6.png" width="200" height="80" class="center" style="margin-bottom:10px;">
+												<button name="voucher6" id="voucher6" class="btn btn-default btn-sm center-element" tabindex="8">ID Card 3/Row</button>
+											</div>
 										</div>
 									</div>
 								</div>
@@ -153,15 +212,15 @@ else
 					while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
 						$sn += 1;
 						$id = $row['id'];
-						$limit_bytes = ($row['limit_bytes'] == 0) ? 'None' : $row['limit_bytes'].' Gb';
+						$limit_bytes = ($row['limit_bytes'] == 0) ? 'None' : htmlspecialchars($row['limit_bytes'], ENT_QUOTES, 'UTF-8').' Gb';
 						echo '<tr>';
 							echo '<td>'.$sn.'</td>';
 							echo '<td><img src="images/success.png" width="50px" height="50px"></td>';
-							echo '<td>Username: '.$row['user_name'].'</td>';
-							echo '<td>Password: '.$row['password'].'</td>';
-							echo '<td>Uptime Limit: '.$row['limit_uptime'].'</td>';
+							echo '<td>Username: '.htmlspecialchars($row['user_name'], ENT_QUOTES, 'UTF-8').'</td>';
+							echo '<td>Password: '.htmlspecialchars($row['password'], ENT_QUOTES, 'UTF-8').'</td>';
+							echo '<td>Uptime Limit: '.htmlspecialchars($row['limit_uptime'], ENT_QUOTES, 'UTF-8').'</td>';
 							echo '<td>Usage Limit: '.$limit_bytes.'</td>';
-							echo '<td>Bandwidth Profile: '.$row['profile'].'</td>';
+							echo '<td>Bandwidth Profile: '.htmlspecialchars($row['profile'], ENT_QUOTES, 'UTF-8').'</td>';
 						echo '</tr>';
 					}
 					?>
@@ -226,20 +285,20 @@ if (isset($_POST['voucher2'])) {
 					while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
 						$sn += 1;
 						$id = $row['id'];
-						$limit_bytes = ($row['limit_bytes'] == 0) ? 'None' : $row['limit_bytes'].' Gb';
+						$limit_bytes = ($row['limit_bytes'] == 0) ? 'None' : htmlspecialchars($row['limit_bytes'], ENT_QUOTES, 'UTF-8').' Gb';
 						echo '<tr>';
 							echo '<td>'.$sn.'</td>';
 							echo '<td><img src="images/success.png" width="50px" height="50px"></td>';
-							echo '<td>Username: '.$row['user_name'].'</td>';
-							echo '<td>Password: '.$row['password'].'</td>';
+							echo '<td>Username: '.htmlspecialchars($row['user_name'], ENT_QUOTES, 'UTF-8').'</td>';
+							echo '<td>Password: '.htmlspecialchars($row['password'], ENT_QUOTES, 'UTF-8').'</td>';
 							echo '<td></td>';
 							if ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
 								$sn += 1;
-								$limit_bytes = ($row['limit_bytes'] == 0) ? 'None' : $row['limit_bytes'].' Gb';
+								$limit_bytes = ($row['limit_bytes'] == 0) ? 'None' : htmlspecialchars($row['limit_bytes'], ENT_QUOTES, 'UTF-8').' Gb';
 								echo '<td>'.$sn.'</td>';
 								echo '<td><img src="images/success.png" width="50px" height="50px"></td>';
-								echo '<td>Username: '.$row['user_name'].'</td>';
-								echo '<td>Password: '.$row['password'].'</td>';
+								echo '<td>Username: '.htmlspecialchars($row['user_name'], ENT_QUOTES, 'UTF-8').'</td>';
+								echo '<td>Password: '.htmlspecialchars($row['password'], ENT_QUOTES, 'UTF-8').'</td>';
 							}	
 						echo '</tr>';
 					}
@@ -308,26 +367,26 @@ if (isset($_POST['voucher3'])) { //3 Units per Line, For Same Username and Passw
 					while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
 						$sn += 1;
 						$id = $row['id'];
-						$limit_bytes = ($row['limit_bytes'] == 0) ? 'None' : $row['limit_bytes'].' Gb';
+						$limit_bytes = ($row['limit_bytes'] == 0) ? 'None' : htmlspecialchars($row['limit_bytes'], ENT_QUOTES, 'UTF-8').' Gb';
 						echo '<tr>';
 							echo '<td>'.$sn.'</td>';
 							echo '<td><img src="images/success.png" width="50px" height="50px"></td>';
-							echo '<td>ID & Psd: '.$row['user_name'].'</td>';
+							echo '<td>ID & Psd: '.htmlspecialchars($row['user_name'], ENT_QUOTES, 'UTF-8').'</td>';
 							echo '<td></td>';
 							if ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
 								$sn += 1;
-								$limit_bytes = ($row['limit_bytes'] == 0) ? 'None' : $row['limit_bytes'].' Gb';
+								$limit_bytes = ($row['limit_bytes'] == 0) ? 'None' : htmlspecialchars($row['limit_bytes'], ENT_QUOTES, 'UTF-8').' Gb';
 								echo '<td>'.$sn.'</td>';
 								echo '<td><img src="images/success.png" width="50px" height="50px"></td>';
-								echo '<td>ID & Psd: '.$row['user_name'].'</td>';
+								echo '<td>ID & Psd: '.htmlspecialchars($row['user_name'], ENT_QUOTES, 'UTF-8').'</td>';
 								echo '<td></td>';
 							}	
 							if ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
 								$sn += 1;
-								$limit_bytes = ($row['limit_bytes'] == 0) ? 'None' : $row['limit_bytes'].' Gb';
+								$limit_bytes = ($row['limit_bytes'] == 0) ? 'None' : htmlspecialchars($row['limit_bytes'], ENT_QUOTES, 'UTF-8').' Gb';
 								echo '<td>'.$sn.'</td>';
 								echo '<td><img src="images/success.png" width="50px" height="50px"></td>';
-								echo '<td>ID & Psd: '.$row['user_name'].'</td>';
+								echo '<td>ID & Psd: '.htmlspecialchars($row['user_name'], ENT_QUOTES, 'UTF-8').'</td>';
 							}	
 						echo '</tr>';
 					}
@@ -390,18 +449,18 @@ else
 					while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
 						$sn += 1;
 						$id = $row['id'];
-						$limit_bytes = ($row['limit_bytes'] == 0) ? 'None' : $row['limit_bytes'].' Gb';
+						$limit_bytes = ($row['limit_bytes'] == 0) ? 'None' : htmlspecialchars($row['limit_bytes'], ENT_QUOTES, 'UTF-8').' Gb';
 						echo '<tr>';
 							echo '<td rowspan="2">'.$sn.'</td>';
 							echo '<td rowspan="2"><img src="images/success.png" width="50px" height="50px"></td>';
-							echo '<td>Username: '.$row['user_name'].'</td>';
-							echo '<td>Password: '.$row['password'].'</td>';
+							echo '<td>Username: '.htmlspecialchars($row['user_name'], ENT_QUOTES, 'UTF-8').'</td>';
+							echo '<td>Password: '.htmlspecialchars($row['password'], ENT_QUOTES, 'UTF-8').'</td>';
 							echo '<td><strong>Counting Starts from 1st Login</strong></td>';
 							echo '</tr>';
 							echo '<tr>';
-							echo '<td>Uptime Limit: '.$row['limit_uptime'].'</td>';
+							echo '<td>Uptime Limit: '.htmlspecialchars($row['limit_uptime'], ENT_QUOTES, 'UTF-8').'</td>';
 							echo '<td>Usage Limit: '.$limit_bytes.'</td>';
-							echo '<td>Bandwidth Profile: '.$row['profile'].'</td>';
+							echo '<td>Bandwidth Profile: '.htmlspecialchars($row['profile'], ENT_QUOTES, 'UTF-8').'</td>';
 						echo '</tr>';
 					}
 					?>
@@ -449,7 +508,7 @@ else
 	while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
 		$sn += 1;
 		$id = $row['id'];
-		$limit_bytes = ($row['limit_bytes'] == 0) ? 'None' : $row['limit_bytes'].' Gb';
+		$limit_bytes = ($row['limit_bytes'] == 0) ? 'None' : htmlspecialchars($row['limit_bytes'], ENT_QUOTES, 'UTF-8').' Gb';
 		?>
 		<div class="row">
 			<div class="col-sm-4">
@@ -458,12 +517,12 @@ else
 					<div class="card-img-overlay">
 						<h6 class="card-title text-center">WIFI HOTSPOT</h6>
 						<ul class="list-group list-group-flush">
-							<li class="list-group-item">ID: <?php echo $sn.' ['.$row['uid'].']'; ?></li>
-							<li class="list-group-item">User Name: <?php echo $row['user_name']; ?></li>
-							<li class="list-group-item">Password : <?php echo $row['password']; ?></li>
-							<li class="list-group-item">Uptime Limit : <?php echo $row['limit_uptime']; ?></li>
+							<li class="list-group-item">ID: <?php echo $sn.' ['.htmlspecialchars($row['uid'], ENT_QUOTES, 'UTF-8').']'; ?></li>
+							<li class="list-group-item">User Name: <?php echo htmlspecialchars($row['user_name'], ENT_QUOTES, 'UTF-8'); ?></li>
+							<li class="list-group-item">Password : <?php echo htmlspecialchars($row['password'], ENT_QUOTES, 'UTF-8'); ?></li>
+							<li class="list-group-item">Uptime Limit : <?php echo htmlspecialchars($row['limit_uptime'], ENT_QUOTES, 'UTF-8'); ?></li>
 							<li class="list-group-item">Usage Limit  : <?php echo $limit_bytes; ?></li>
-							<li class="list-group-item">Bandwidth Profile  : <?php echo $row['profile']; ?></li>
+							<li class="list-group-item">Bandwidth Profile  : <?php echo htmlspecialchars($row['profile'], ENT_QUOTES, 'UTF-8'); ?></li>
 						</ul>
 					</div>
 				</div>	
@@ -515,7 +574,7 @@ else
 	while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
 		$sn += 1;
 		$id = $row['id'];
-		$limit_bytes = ($row['limit_bytes'] == 0) ? 'None' : $row['limit_bytes'].' Gb';
+		$limit_bytes = ($row['limit_bytes'] == 0) ? 'None' : htmlspecialchars($row['limit_bytes'], ENT_QUOTES, 'UTF-8').' Gb';
 		?>
 		<div class="row">
 			<div class="col-xs-4">
@@ -525,12 +584,12 @@ else
 						<h6 class="card-title text-center">WIFI HOTSPOT</h6>
 						<div class="card-block">
 							<ul class="list-group list-group-flush">
-								<li class="list-group-item">ID: <?php echo $sn.' ['.$row['uid'].']'; ?></li>
-								<li class="list-group-item">User Name: <?php echo $row['user_name']; ?></li>
-								<li class="list-group-item">Password : <?php echo $row['password']; ?></li>
-								<li class="list-group-item">Uptime Limit : <?php echo $row['limit_uptime']; ?></li>
+								<li class="list-group-item">ID: <?php echo $sn.' ['.htmlspecialchars($row['uid'], ENT_QUOTES, 'UTF-8').']'; ?></li>
+								<li class="list-group-item">User Name: <?php echo htmlspecialchars($row['user_name'], ENT_QUOTES, 'UTF-8'); ?></li>
+								<li class="list-group-item">Password : <?php echo htmlspecialchars($row['password'], ENT_QUOTES, 'UTF-8'); ?></li>
+								<li class="list-group-item">Uptime Limit : <?php echo htmlspecialchars($row['limit_uptime'], ENT_QUOTES, 'UTF-8'); ?></li>
 								<li class="list-group-item">Usage Limit  : <?php echo $limit_bytes; ?></li>
-								<li class="list-group-item">Bandwidth Profile  : <?php echo $row['profile']; ?></li>
+								<li class="list-group-item">Bandwidth Profile  : <?php echo htmlspecialchars($row['profile'], ENT_QUOTES, 'UTF-8'); ?></li>
 							</ul>
 						</div>
 					</div>	
@@ -538,7 +597,7 @@ else
 			</div>		
 			<?php if($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
 			$sn += 1;
-			$limit_bytes = ($row['limit_bytes'] == 0) ? 'None' : $row['limit_bytes'].' Gb';
+			$limit_bytes = ($row['limit_bytes'] == 0) ? 'None' : htmlspecialchars($row['limit_bytes'], ENT_QUOTES, 'UTF-8').' Gb';
 			?>
 			<div class="col-xs-4">
 				<div class="card card-inverse">
@@ -547,12 +606,12 @@ else
 						<h6 class="card-title text-center">WIFI HOTSPOT</h6>
 						<div class="card-block">
 							<ul class="list-group list-group-flush">
-								<li class="list-group-item">ID: <?php echo $sn.' ['.$row['uid'].']'; ?></li>
-								<li class="list-group-item">User Name: <?php echo $row['user_name']; ?></li>
-								<li class="list-group-item">Password : <?php echo $row['password']; ?></li>
-								<li class="list-group-item">Uptime Limit : <?php echo $row['limit_uptime']; ?></li>
+								<li class="list-group-item">ID: <?php echo $sn.' ['.htmlspecialchars($row['uid'], ENT_QUOTES, 'UTF-8').']'; ?></li>
+								<li class="list-group-item">User Name: <?php echo htmlspecialchars($row['user_name'], ENT_QUOTES, 'UTF-8'); ?></li>
+								<li class="list-group-item">Password : <?php echo htmlspecialchars($row['password'], ENT_QUOTES, 'UTF-8'); ?></li>
+								<li class="list-group-item">Uptime Limit : <?php echo htmlspecialchars($row['limit_uptime'], ENT_QUOTES, 'UTF-8'); ?></li>
 								<li class="list-group-item">Usage Limit  : <?php echo $limit_bytes; ?></li>
-								<li class="list-group-item">Bandwidth Profile  : <?php echo $row['profile']; ?></li>
+								<li class="list-group-item">Bandwidth Profile  : <?php echo htmlspecialchars($row['profile'], ENT_QUOTES, 'UTF-8'); ?></li>
 							</ul>
 						</div>
 					</div>	
@@ -561,7 +620,7 @@ else
 			<?php } ?>
 			<?php  if($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
 			$sn += 1;
-			$limit_bytes = ($row['limit_bytes'] == 0) ? 'None' : $row['limit_bytes'].' Gb';
+			$limit_bytes = ($row['limit_bytes'] == 0) ? 'None' : htmlspecialchars($row['limit_bytes'], ENT_QUOTES, 'UTF-8').' Gb';
 			?>			
 			<div class="col-xs-4">
 				<div class="card card-inverse">
@@ -570,12 +629,12 @@ else
 						<h6 class="card-title text-center">WIFI HOTSPOT</h6>
 						<div class="card-block">
 							<ul class="list-group list-group-flush">
-								<li class="list-group-item">ID: <?php echo $sn.' ['.$row['uid'].']'; ?></li>
-								<li class="list-group-item">User Name: <?php echo $row['user_name']; ?></li>
-								<li class="list-group-item">Password : <?php echo $row['password']; ?></li>
-								<li class="list-group-item">Uptime Limit : <?php echo $row['limit_uptime']; ?></li>
+								<li class="list-group-item">ID: <?php echo $sn.' ['.htmlspecialchars($row['uid'], ENT_QUOTES, 'UTF-8').']'; ?></li>
+								<li class="list-group-item">User Name: <?php echo htmlspecialchars($row['user_name'], ENT_QUOTES, 'UTF-8'); ?></li>
+								<li class="list-group-item">Password : <?php echo htmlspecialchars($row['password'], ENT_QUOTES, 'UTF-8'); ?></li>
+								<li class="list-group-item">Uptime Limit : <?php echo htmlspecialchars($row['limit_uptime'], ENT_QUOTES, 'UTF-8'); ?></li>
 								<li class="list-group-item">Usage Limit  : <?php echo $limit_bytes; ?></li>
-								<li class="list-group-item">Bandwidth Profile  : <?php echo $row['profile']; ?></li>
+								<li class="list-group-item">Bandwidth Profile  : <?php echo htmlspecialchars($row['profile'], ENT_QUOTES, 'UTF-8'); ?></li>
 							</ul>
 						</div>
 					</div>	
@@ -722,8 +781,8 @@ if (isset($_POST['voucher7'])) {
 	$sn = 0;
 	while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
 		$sn++;
-		$price = isset($row['price']) ? $row['price'] : getVoucherPrice($row['limit_uptime']);
-		$validity = getUptimeName($row['limit_uptime']);
+		$price = getVoucherDisplayPrice($row);
+		$validity = getVoucherDisplayName($row);
 		$expires = isset($row['expires_on']) && $row['expires_on'] ? date('M d, Y', strtotime($row['expires_on'])) : 'N/A';
 		?>
 		<div class="cafe-voucher">
@@ -737,11 +796,11 @@ if (isset($_POST['voucher7'])) {
 				</div>
 				<div class="cafe-voucher-credentials">
 					<label>Username</label>
-					<div class="value"><?php echo $row['user_name']; ?></div>
+					<div class="value"><?php echo htmlspecialchars($row['user_name'], ENT_QUOTES, 'UTF-8'); ?></div>
 				</div>
 				<div class="cafe-voucher-credentials">
 					<label>Password</label>
-					<div class="value"><?php echo $row['password']; ?></div>
+					<div class="value"><?php echo htmlspecialchars($row['password'], ENT_QUOTES, 'UTF-8'); ?></div>
 				</div>
 				<div class="cafe-voucher-info">
 					<span><strong>⏱ <?php echo $validity; ?></strong></span>
@@ -899,8 +958,8 @@ if (isset($_POST['voucher8'])) {
 	$sn = 0;
 	while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
 		$sn++;
-		$price = isset($row['price']) ? $row['price'] : getVoucherPrice($row['limit_uptime']);
-		$validity = getUptimeName($row['limit_uptime']);
+		$price = getVoucherDisplayPrice($row);
+		$validity = getVoucherDisplayName($row);
 		$expires = isset($row['expires_on']) && $row['expires_on'] ? date('M d', strtotime($row['expires_on'])) : 'N/A';
 		$qrUrl = generateQRCode($row['user_name'], $row['password'], 100);
 		?>
@@ -916,11 +975,11 @@ if (isset($_POST['voucher8'])) {
 				<div class="qr-voucher-details">
 					<div class="qr-voucher-credentials">
 						<label>Username</label>
-						<div class="value"><?php echo $row['user_name']; ?></div>
+						<div class="value"><?php echo htmlspecialchars($row['user_name'], ENT_QUOTES, 'UTF-8'); ?></div>
 					</div>
 					<div class="qr-voucher-credentials">
 						<label>Password</label>
-						<div class="value"><?php echo $row['password']; ?></div>
+						<div class="value"><?php echo htmlspecialchars($row['password'], ENT_QUOTES, 'UTF-8'); ?></div>
 					</div>
 					<div class="qr-voucher-price">
 						<?php echo formatPrice($price); ?>

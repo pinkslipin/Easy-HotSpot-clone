@@ -3,35 +3,41 @@ header('Content-Type: application/json');
 use PEAR2\Net\RouterOS;
 require_once 'PEAR2/Autoload.php';
 require_once 'config.php';
-if ( !isset($_SESSION) ) session_start();
-if ($_SESSION['user_level'] == 1) {
+require_once 'security_helper.php';
+secure_session_start();
+require_admin();
+csrf_require();
+if (true) {
 	$util = new RouterOS\Util($client = new RouterOS\Client("$host", "$user", "$pass"));
 
-	$profile_name=strtolower($_GET['profile_name']);
-	$session_timeout=$_GET['session_timeout'];
-	$shared_users=$_GET['shared_users'];
-	$mac_cookie_timeout=$_GET['mac_cookie_timeout'];
-	$keepalive_timeout=$_GET['keepalive_timeout'];
-	$rx_rate_limit=$_GET['rx_rate_limit'];
-	$tx_rate_limit=$_GET['tx_rate_limit'];
+	$profile_name=strtolower($_POST['profile_name']);
+	$session_timeout=$_POST['session_timeout'];
+	$shared_users=$_POST['shared_users'];
+	$mac_cookie_timeout=$_POST['mac_cookie_timeout'];
+	$keepalive_timeout=$_POST['keepalive_timeout'];
+	$rx_rate_limit=$_POST['rx_rate_limit'];
+	$tx_rate_limit=$_POST['tx_rate_limit'];
 
-	$validity = $_GET['validity'];
-	$grace_period = $_GET['grace_period'];
-	$on_expiry = $_GET['on_expiry'];
-	$price = $_GET['price'];
-	$lock_user = $_GET['lock_user'];
+	$validity = $_POST['validity'];
+	$grace_period = $_POST['grace_period'];
+	$on_expiry = $_POST['on_expiry'];
+	$price = $_POST['price'];
+	$lock_user = $_POST['lock_user'];
 	
+	// SECURITY: Validate inputs to prevent RouterOS script injection
+	$price = preg_match('/^[0-9]+(\.[0-9]{1,2})?$/', $price) ? $price : '0';
+	$validity = preg_match('/^[0-9]+[smhdw]?( [0-9]{2}:[0-9]{2}:[0-9]{2})?$/', $validity) ? $validity : '1d';
+	$grace_period = preg_match('/^[0-9]+[smhdw]?( [0-9]{2}:[0-9]{2}:[0-9]{2})?$/', $grace_period) ? $grace_period : '1d';
+	$on_expiry = in_array($on_expiry, ['rem', 'ntf', 'remc', 'ntfc', '0'], true) ? $on_expiry : '0';
+	$lock_user = in_array($lock_user, ['Enable', 'Disable'], true) ? $lock_user : 'Disable';
+	$shared_users = intval($shared_users);
+
 	$rate_limit = $rx_rate_limit.'/'.$tx_rate_limit;
 	if (empty($rx_rate_limit))  $rx_rate_limit = "256k";
 	if (empty($tx_rate_limit))  $tx_rate_limit = "128k";
 	if (empty($shared_users))  $shared_users = 1;
-/*	
-	if (empty($session_timeout))  $session_timeout = "1d 00:00:00";
-	if (empty($mac_cookie_timeout))  $mac_cookie_timeout = "1d 00:00:00";
-	if (empty($keepalive_timeout))  $keepalive_timeout = "00:02:00";
-*/
 	if ($price == "") {$price = "0";}
-	if($lock_user == Enable){$mac_bind = ';[:local mac $"mac-address"; /ip hotspot user set mac-address=$mac [find where name=$user]]';} else {$mac_bind = "";}
+	if($lock_user === 'Enable'){$mac_bind = ';[:local mac $"mac-address"; /ip hotspot user set mac-address=$mac [find where name=$user]]';} else {$mac_bind = "";}
 
 	$login_script = "";
 

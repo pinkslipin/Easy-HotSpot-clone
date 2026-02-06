@@ -1,9 +1,12 @@
 <?php
 //Start Removing All Validity Expired Guest User Accounts
 require_once 'config.php';
-if ( !isset($_SESSION) ) session_start();
+require_once 'security_helper.php';
+secure_session_start();
+require_user();
+csrf_require();
 
-if ($_SESSION['user_level'] <= 3) {	
+if (true) {	
 	
 	if (defined('MOCK_MODE') && MOCK_MODE === true) {
 		// Mock mode - In mock mode, expired users would be handled differently

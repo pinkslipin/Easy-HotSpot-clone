@@ -2,16 +2,12 @@
 /**
  * AJAX handler to clear audit logs
  */
-session_start();
+require_once 'security_helper.php';
+secure_session_start();
+require_admin();
+csrf_require();
 require_once 'dbconfig.php';
 require_once 'audit_log.php';
-
-// Check user permissions - only admin can clear logs
-if (!isset($_SESSION['username']) || $_SESSION['user_level'] != 1) {
-    http_response_code(403);
-    echo json_encode(['success' => false, 'message' => 'Access denied - Admin only']);
-    exit;
-}
 
 try {
     // Log this action before clearing (will be the first entry after clear)
@@ -25,6 +21,7 @@ try {
         echo json_encode(['success' => false, 'message' => 'Failed to clear logs']);
     }
 } catch (Exception $e) {
-    echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
+    error_log('Clear logs error: ' . $e->getMessage());
+    echo json_encode(['success' => false, 'message' => 'Failed to clear logs']);
 }
 ?>

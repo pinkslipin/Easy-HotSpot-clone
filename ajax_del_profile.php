@@ -3,13 +3,14 @@ header('Content-Type: application/json');
 use PEAR2\Net\RouterOS;
 require_once 'PEAR2/Autoload.php';
 require_once 'config.php';
-if ( !isset($_SESSION) ) session_start();
+require_once 'security_helper.php';
+secure_session_start();
+require_admin();
+csrf_require();
 $util = new RouterOS\Util($client = new RouterOS\Client("$host", "$user", "$pass"));
 
-$profile_name=strtolower($_GET['profile_name']);
+$profile_name=strtolower($_POST['profile_name']);
 
-if ($_SESSION['user_level'] == 1) {
-	
 	if (!empty($profile_name)) {
 		
 		$printRequest = new RouterOS\Request('/ip hotspot user profile print');
@@ -32,9 +33,4 @@ if ($_SESSION['user_level'] == 1) {
 		{
 		echo 1; //Profile name Empty
 	}
-}
-else
-	{
-		echo 0; //Not Authorised
-}
 ?>

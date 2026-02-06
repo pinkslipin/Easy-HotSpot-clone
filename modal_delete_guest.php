@@ -1,4 +1,4 @@
-<div id="delete<?php echo $item->getProperty('name'); ?>" class="child-modal modal fade"  tabindex="-1" role="dialog" aria-hidden="true">
+<div id="delete<?php echo htmlspecialchars($item->getProperty('name'), ENT_QUOTES, 'UTF-8'); ?>" class="child-modal modal fade"  tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog">
 		<div class="modal-content">	
 			<form class="form-horizontal" method="post">
@@ -9,7 +9,7 @@
 						<div class="col-xs-7">
 							<div class="input-group">
 								<span class="input-group-addon"><i class="fa fa-envelope-o fa-fw"></i></span>
-								<input type="text" size="40" name="username" value="<?php echo $item->getProperty('name'); ?>" readonly>
+								<input type="text" size="40" name="username" value="<?php echo htmlspecialchars($item->getProperty('name'), ENT_QUOTES, 'UTF-8'); ?>" readonly>
 							</div>
 						</div>	
 					</div>
@@ -18,26 +18,26 @@
 						<div class="col-xs-7">
 							<div class="input-group">
 								<span class="input-group-addon"><i class="fa fa-key fa-fw"></i></span>
-								<input type="text" name="uptime" value="<?php echo $item->getProperty('limit-uptime'); ?>" readonly>
+								<input type="text" name="uptime" value="<?php echo htmlspecialchars($item->getProperty('limit-uptime'), ENT_QUOTES, 'UTF-8'); ?>" readonly>
 							</div>
 						</div>	
 					</div>
 					<div class="form-group">
 						<label class="control-label col-xs-3">Address</label>
 						<div class="col-xs-7">
-							<input type="text" name="firstname" value="<?php echo $item->getProperty('address'); ?>" readonly>
+							<input type="text" name="firstname" value="<?php echo htmlspecialchars($item->getProperty('address'), ENT_QUOTES, 'UTF-8'); ?>" readonly>
 						</div>	
 					</div>
 					<div class="form-group">
 						<label class="control-label col-xs-3" for="lastname">Uptime</label>
 						<div class="col-xs-7">
-							<input type="text" name="lastname" value="<?php echo $item->getProperty('uptime'); ?>" readonly>
+							<input type="text" name="lastname" value="<?php echo htmlspecialchars($item->getProperty('uptime'), ENT_QUOTES, 'UTF-8'); ?>" readonly>
 						</div>
 					</div>
 					<div class="form-group">
 						<label class="control-label col-xs-3" for="session-time-left">Session time Left</label>
 						<div class="col-xs-7">
-							<input type="text" name="session-time-left" value="<?php echo $item->getProperty('session-time-left'); ?>" readonly>
+							<input type="text" name="session-time-left" value="<?php echo htmlspecialchars($item->getProperty('session-time-left'), ENT_QUOTES, 'UTF-8'); ?>" readonly>
 						</div>
 					</div>
 				</div>	
@@ -45,7 +45,7 @@
 					<div class="col-sm-12">
 						<div class="col-sm-3 col-sm-offset-3">
 							<div class="pull-right">
-								<button name="issuing" onClick="removeAjax('<?php echo $item->getProperty('name'); ?>')" class="btn btn-success" data-dismiss="modal"><i class="icon-save icon-large"></i></a>&nbsp;Remove</button>
+								<button name="issuing" onClick="removeAjax('<?php echo htmlspecialchars($item->getProperty('name'), ENT_QUOTES, 'UTF-8'); ?>')" class="btn btn-success" data-dismiss="modal"><i class="icon-save icon-large"></i></a>&nbsp;Remove</button>
 							</div>
 						</div>
 						<div class="col-sm-6">

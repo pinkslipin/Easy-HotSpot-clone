@@ -14,7 +14,8 @@
 			$DB_con->query("use $dbname");
 		}
 		catch(PDOException $e) {
-			echo "Error: " . $e->getMessage();
+			error_log('Database connection error: ' . $e->getMessage());
+			die('Database connection failed. Please check configuration.');
 	}
 	
 	/* Old Version, NOT creating DB if NOT Exist

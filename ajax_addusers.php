@@ -1,8 +1,22 @@
-<?php  error_reporting(E_ALL);
-ini_set('display_errors', 1);
+<?php
+// Suppress error details in production
+error_reporting(E_ALL & ~E_DEPRECATED);
+ini_set('display_errors', 0);
 
-//require_once 'settings.php';
+/**
+ * Batch Voucher Creation
+ * 
+ * Creates multiple hotspot user vouchers on the router and in the database.
+ * Now supports package-based pricing including time-window passes.
+ */
+
 require_once 'config.php';
+require_once 'packages_config.php';
+require_once 'security_helper.php';
+
+// SECURITY: Require authenticated user
+require_auth();
+csrf_require();
 
 // Initialize router connection (mock or real)
 if (defined('MOCK_MODE') && MOCK_MODE === true) {
@@ -20,16 +34,56 @@ if (defined('MOCK_MODE') && MOCK_MODE === true) {
 	$client = $connection['client'];
 }
 
-if (isset($_GET['no_of_users'])) $no_of_users = $_GET['no_of_users'];
-if (isset($_GET['pass_length'])) $passLength = $_GET['pass_length'];
-if (isset($_GET['user_prefix'])) $user_prefix = $_GET['user_prefix'];
-if (isset($_GET['limit_uptime'])) $limit_uptime = $_GET['limit_uptime'];
-if (isset($_GET['limit_bytes'])) $limit_bytes = $_GET['limit_bytes'];
-if (isset($_GET['profile'])) $profile = $_GET['profile'];
-if (isset($_GET['same_pass'])) $same_pass = $_GET['same_pass'];
-if (isset($_GET['pass_type'])) $pass_type = $_GET['pass_type'];
+if (isset($_POST['no_of_users'])) $no_of_users = $_POST['no_of_users'];
+if (isset($_POST['pass_length'])) $passLength = $_POST['pass_length'];
+if (isset($_POST['user_prefix'])) $user_prefix = $_POST['user_prefix'];
 
-if ( !isset($_SESSION) ) session_start();
+// Package-based voucher creation
+$package_id = null;
+if (isset($_POST['package_id'])) {
+	$package_id = $_POST['package_id'];
+}
+// Backward compatibility: also accept limit_uptime if package_id is not provided
+if (!$package_id && isset($_POST['limit_uptime'])) {
+	$legacy_uptime = $_POST['limit_uptime'];
+	// Try to find matching package
+	foreach (getAllPackages() as $pkg) {
+		if ($pkg['type'] === 'duration' && $pkg['limit_uptime'] === $legacy_uptime) {
+			$package_id = $pkg['id'];
+			break;
+		}
+	}
+	// If no match, use default
+	if (!$package_id) {
+		$package_id = 'ind_1h';
+	}
+}
+
+if (isset($_POST['limit_bytes'])) $limit_bytes = $_POST['limit_bytes'];
+if (isset($_POST['profile'])) $profile = $_POST['profile'];
+if (isset($_POST['same_pass'])) $same_pass = $_POST['same_pass'];
+if (isset($_POST['pass_type'])) $pass_type = $_POST['pass_type'];
+
+if (session_status() === PHP_SESSION_NONE) session_start();
+
+// Get package information
+$package = getPackage($package_id);
+if (!$package) {
+	echo 0; // Error - invalid package
+	exit;
+}
+
+$price = $package['price'];
+$package_name = getPackageDisplayName($package_id);
+$package_type = $package['type'];
+
+// Determine limit_uptime for router
+if ($package['type'] === 'duration') {
+	$limit_uptime = $package['limit_uptime'];
+} else {
+	// Window packages don't use traditional limit-uptime
+	$limit_uptime = '1d'; // Will be managed by profile script
+}
 
 switch ($pass_type) {
 	case "s":
@@ -63,7 +117,6 @@ $passAlphabetLimit = strlen($passAlphabet)-1;
 	
 if($_SESSION['user_level'] >= 1 and $_SESSION['user_level'] <= 3) {
 	include('dbconfig.php');
-	require_once 'pricing_config.php';
 	
 	$stmt = $DB_con->prepare("SELECT booking_id from hotspot_vouchers ORDER BY booking_id DESC LIMIT 1");
 	$stmt->execute(array());
@@ -71,35 +124,34 @@ if($_SESSION['user_level'] >= 1 and $_SESSION['user_level'] <= 3) {
 	$booking_id = ($row && isset($row['booking_id'])) ? $row['booking_id'] : 0;
 	$booking_id++;
 	
-	// Generate batch ID based on uptime limit and timestamp
-	$batch_id = strtoupper($limit_uptime) . '-' . date('mdHi');
+	// Generate batch ID based on package ID and timestamp (not uptime)
+	$batch_id = strtoupper($package_id) . '-' . date('mdHi');
 	
-	// Get price and expiry date from config
-	$price = getVoucherPrice($limit_uptime);
+	// Get expiry date from config
 	$expires_on = getExpiryDate();
 	
-	// NOTE: Removed the UPDATE that marked all previous vouchers as 'Over'
-	// Now each batch stays 'Active' until manually changed
+	// Store limit_uptime from package (empty for window packages)
+	$db_limit_uptime = ($package['type'] === 'duration') ? $package['limit_uptime'] : '';
 
-	$stmt = $DB_con->prepare("insert into hotspot_vouchers (created_on, created_by, creator, user_name, password, printed_times,
-		printed_last, status, group_of, booking_id, limit_uptime, limit_bytes, profile, uid, batch_id, price, expires_on)
-		values(NOW(), :created_by, :creator,  :user_name, :password, :printed_times, :printed_last, :status, :group_of, 
-		:booking_id, :limit_uptime, :limit_bytes, :profile, :uid, :batch_id, :price, :expires_on)");
+	$stmt = $DB_con->prepare("INSERT INTO hotspot_vouchers (created_on, created_by, creator, user_name, password, printed_times,
+		printed_last, status, group_of, booking_id, limit_uptime, limit_bytes, profile, uid, batch_id, price, expires_on,
+		package_id, package_name, package_type)
+		VALUES(NOW(), :created_by, :creator, :user_name, :password, :printed_times, :printed_last, :status, :group_of, 
+		:booking_id, :limit_uptime, :limit_bytes, :profile, :uid, :batch_id, :price, :expires_on,
+		:package_id, :package_name, :package_type)");
 		
 	$k = 1;
 	for($i=0; $i < $no_of_users; $i++){
-		//$passAlphabet = 'abcdefghikmnpqrstuvxyz23456789';
-		//$passAlphabetLimit = strlen($passAlphabet)-1;
 		$pass = '';
 		$uid = '';
 		//Password generation
 		for ($j = 0; $j < $passLength; ++$j) {
-			$pass .= $passAlphabet[mt_rand(0, $passAlphabetLimit)];
+			$pass .= $passAlphabet[random_int(0, $passAlphabetLimit)];
 		}
 		$pass = str_shuffle($pass);
 		//Username generation
 		for ($j = 0; $j < $passLength; ++$j) {
-			$uid .= $passAlphabet[mt_rand(0, $passAlphabetLimit)];
+			$uid .= $passAlphabet[random_int(0, $passAlphabetLimit)];
 		}
 		//Adding prefix to username
 		$user_name = $user_prefix.$uid;
@@ -121,7 +173,7 @@ if($_SESSION['user_level'] >= 1 and $_SESSION['user_level'] <= 3) {
 					'limit-uptime' => "$limit_uptime",
 					'limit-bytes-total' => "$limit_bytes_total",
 					'profile' => "$profile",
-					'comment' => "Zetozone",
+					'comment' => "PKG:$package_id",
 				)
 			);
 		}
@@ -134,7 +186,7 @@ if($_SESSION['user_level'] >= 1 and $_SESSION['user_level'] <= 3) {
 					'disabled' => "no",
 					'limit-uptime' => "$limit_uptime",
 					'profile' => "$profile",
-					'comment' => "Zetozone",
+					'comment' => "PKG:$package_id",
 				)
 			);
 			$limit_bytes = 0; // For Adding it to Local database
@@ -142,12 +194,28 @@ if($_SESSION['user_level'] >= 1 and $_SESSION['user_level'] <= 3) {
 
 		$updatedUsers = $util->getAll();
 		if ($iv != count($updatedUsers)) {
-			$uid = $booking_id.'-'.$k.'-'.$no_of_users.date('dmY');
-			//$creator = $_SESSION['username'].'['.$_SESSION['id'].']';
-			$stmt->execute(array(':created_by' => $_SESSION['username'], ':creator' => $_SESSION['id'], ':user_name' => $user_name, ':password' => $pass_word,
-				':printed_times' => 0, ':printed_last' => '', ':status' => 'Active', ':group_of' => $no_of_users,
-				':booking_id' => $booking_id, ':limit_uptime' => $limit_uptime, ':limit_bytes' => $limit_bytes,
-				':profile' => $profile, ':uid' => $uid, ':batch_id' => $batch_id, ':price' => $price, ':expires_on' => $expires_on));			
+			$voucher_uid = $booking_id.'-'.$k.'-'.$no_of_users.date('dmY');
+			$stmt->execute(array(
+				':created_by' => $_SESSION['username'], 
+				':creator' => $_SESSION['id'], 
+				':user_name' => $user_name, 
+				':password' => $pass_word,
+				':printed_times' => 0, 
+				':printed_last' => '', 
+				':status' => 'Active', 
+				':group_of' => $no_of_users,
+				':booking_id' => $booking_id, 
+				':limit_uptime' => $db_limit_uptime, 
+				':limit_bytes' => $limit_bytes,
+				':profile' => $profile, 
+				':uid' => $voucher_uid, 
+				':batch_id' => $batch_id, 
+				':price' => $price, 
+				':expires_on' => $expires_on,
+				':package_id' => $package_id,
+				':package_name' => $package_name,
+				':package_type' => $package_type
+			));			
 			$k++;	
 		} 	
 	}
@@ -156,7 +224,7 @@ if($_SESSION['user_level'] >= 1 and $_SESSION['user_level'] <= 3) {
 	$created = $k - 1;
 	if ($created > 0) {
 		require_once 'audit_log.php';
-		auditLog('voucher_create', "Created batch $batch_id with $created vouchers ($limit_uptime)");
+		auditLog('voucher_create', "Created batch $batch_id with $created vouchers ($package_name)");
 	}
 	
 	echo $created; //Successful

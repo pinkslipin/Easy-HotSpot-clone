@@ -5,14 +5,10 @@
  * Use this page to test your MikroTik router connection
  * before going into production mode.
  */
-session_start();
+require_once 'security_helper.php';
+secure_session_start();
+require_auth();
 require_once 'config.php';
-
-// Only allow logged in admins
-if (!isset($_SESSION['user_level']) || $_SESSION['user_level'] > 2) {
-    header("location:login.php");
-    exit;
-}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -106,7 +102,7 @@ if (!isset($_SESSION['user_level']) || $_SESSION['user_level'] > 2) {
                     $testClient = new \RouterOS\Client($config);
                     echo '<span style="color:green"><i class="fa fa-check"></i> Port ' . $port . ' works!</span>';
                 } catch (Exception $e) {
-                    echo '<span style="color:red"><i class="fa fa-times"></i> Failed (' . substr($e->getMessage(), 0, 50) . '...)</span>';
+                    echo '<span style="color:red"><i class="fa fa-times"></i> Failed (Connection failed)</span>';
                 }
                 echo "</p>";
             }
@@ -215,7 +211,7 @@ if (!isset($_SESSION['user_level']) || $_SESSION['user_level'] > 2) {
             
             // Check if host is reachable
             echo '<h5>Ping Test:</h5>';
-            $pingCmd = PHP_OS_FAMILY === 'Windows' ? "ping -n 1 -w 1000 $host" : "ping -c 1 -W 1 $host";
+            $pingCmd = PHP_OS_FAMILY === 'Windows' ? "ping -n 1 -w 1000 " . escapeshellarg($host) : "ping -c 1 -W 1 " . escapeshellarg($host);
             exec($pingCmd, $output, $returnCode);
             if ($returnCode === 0) {
                 echo '<p style="color:green"><i class="fa fa-check"></i> Host is reachable via ping</p>';

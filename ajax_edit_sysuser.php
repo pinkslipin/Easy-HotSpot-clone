@@ -1,11 +1,14 @@
 <?php 
-if ( !isset($_SESSION) ) session_start();
+require_once 'security_helper.php';
+secure_session_start();
+require_admin();
+csrf_require();
 
-if (($_SESSION['user_level'] == 1) and (!empty($_GET['user_id']))) { 
+if ((!empty($_POST['user_id']))) { 
 	include('dbconfig.php');
 
-	$user_id=$_GET['user_id'];
-	$username=strtolower($_GET['username']);
+	$user_id=$_POST['user_id'];
+	$username=strtolower($_POST['username']);
 	$stmt = $DB_con->prepare("SELECT * FROM hotspot_users WHERE username = :username AND user_id != :user_id");
 	$stmt->execute(array(':username' => $username, ':user_id' => $user_id));
 	$count = $stmt->rowCount();
@@ -15,10 +18,14 @@ if (($_SESSION['user_level'] == 1) and (!empty($_GET['user_id']))) {
 		}
 	else
 		{
-		$firstname=$_GET['firstname'];
-		$lastname=$_GET['lastname'];
-		$user_level=$_GET['user_level'];
-		$status=$_GET['status'];
+		$firstname=$_POST['firstname'];
+		$lastname=$_POST['lastname'];
+		$user_level=$_POST['user_level'];
+		$status=$_POST['status'];
+
+		// SECURITY: Validate user_level and status against allowed values
+		if (!in_array((int)$user_level, [1, 2, 3], true)) { echo 0; exit; }
+		if (!in_array($status, ['Active', 'Disabled'], true)) { echo 0; exit; }
 
 		$stmt = $DB_con->prepare("update hotspot_users set username=:username, firstname = :firstname , lastname = :lastname,
 			user_level = :user_level, status = :status where user_id= :user_id");

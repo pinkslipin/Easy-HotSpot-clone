@@ -1,7 +1,18 @@
 <?php
-//require_once 'settings.php';
+/**
+ * Single User Voucher Creation
+ * 
+ * Creates a single hotspot user voucher on the router and in the database.
+ * Now supports package-based pricing including time-window passes.
+ */
 
 require_once 'config.php';
+require_once 'packages_config.php';
+require_once 'security_helper.php';
+
+// SECURITY: Require authenticated user
+require_auth();
+csrf_require();
 
 // Initialize router connection (mock or real)
 if (defined('MOCK_MODE') && MOCK_MODE === true) {
@@ -13,12 +24,53 @@ if (defined('MOCK_MODE') && MOCK_MODE === true) {
 	$util = new PEAR2\Net\RouterOS\Util($client = new PEAR2\Net\RouterOS\Client("$host", "$user", "$pass"));
 }
 
-if (isset($_GET['name'])) $username = $_GET['name'];
-if (isset($_GET['psd'])) $password = $_GET['psd'];
-if (isset($_GET['limit_uptime'])) $limit_uptime = $_GET['limit_uptime'];
-if (isset($_GET['limit_bytes'])) $limit_bytes = $_GET['limit_bytes'];
-if (isset($_GET['profile'])) $profile = $_GET['profile'];
-if ( !isset($_SESSION) ) session_start();
+if (isset($_POST['name'])) $username = trim($_POST['name']);
+if (isset($_POST['psd'])) $password = trim($_POST['psd']);
+
+// Package-based voucher creation
+$package_id = null;
+if (isset($_POST['package_id'])) {
+	$package_id = $_POST['package_id'];
+}
+// Backward compatibility: also accept limit_uptime if package_id is not provided
+if (!$package_id && isset($_POST['limit_uptime'])) {
+	$legacy_uptime = $_POST['limit_uptime'];
+	// Try to find matching package
+	foreach (getAllPackages() as $pkg) {
+		if ($pkg['type'] === 'duration' && $pkg['limit_uptime'] === $legacy_uptime) {
+			$package_id = $pkg['id'];
+			break;
+		}
+	}
+	// If no match, use legacy uptime directly
+	if (!$package_id) {
+		$package_id = 'ind_1h'; // Default fallback
+	}
+}
+
+if (isset($_POST['limit_bytes'])) $limit_bytes = $_POST['limit_bytes'];
+if (isset($_POST['profile'])) $profile = $_POST['profile'];
+if (session_status() === PHP_SESSION_NONE) session_start();
+
+// Get package information
+$package = getPackage($package_id);
+if (!$package) {
+	echo '<script>cmodalOkCancel("ERROR", "Invalid package ID: '.htmlspecialchars($package_id).'", "error");</script>';
+	exit;
+}
+
+$price = $package['price'];
+$package_name = getPackageDisplayName($package_id);
+$package_type = $package['type'];
+
+// Determine limit_uptime for router
+if ($package['type'] === 'duration') {
+	$limit_uptime = $package['limit_uptime'];
+} else {
+	// Window packages don't use traditional limit-uptime
+	// We set a long duration and let the on-login script handle time enforcement
+	$limit_uptime = '1d'; // Will be managed by profile script
+}
 
 $util->setMenu('/ip hotspot user');
 $iv = count($util);
@@ -34,7 +86,7 @@ if ((!empty($username)) and (!empty($password)) and (!empty($profile))) {
 				'limit-uptime' => "$limit_uptime",
 				'limit-bytes-total' => "$limit_bytes_total",
 				'profile' => "$profile",
-				'comment' => "Zetozone",
+				'comment' => "PKG:$package_id",
 			)
 		);
 	}
@@ -47,7 +99,7 @@ if ((!empty($username)) and (!empty($password)) and (!empty($profile))) {
 				'disabled' => "no",
 				'limit-uptime' => "$limit_uptime",
 				'profile' => "$profile",
-				'comment' => "Zetozone",
+				'comment' => "PKG:$package_id",
 			)
 		);
 		$limit_bytes = 0; // For Adding it to Local database
@@ -55,33 +107,54 @@ if ((!empty($username)) and (!empty($password)) and (!empty($profile))) {
 
 	if ($iv != count($util)) {
 		include('dbconfig.php');
-		require_once 'pricing_config.php';
 		
 		$stmt = $DB_con->prepare("SELECT booking_id from hotspot_vouchers ORDER BY booking_id DESC LIMIT 1");
 		$stmt->execute(array());
 		$row = $stmt->fetch(PDO::FETCH_ASSOC);
-		$booking_id = $row['booking_id'];
+		$booking_id = ($row && isset($row['booking_id'])) ? $row['booking_id'] : 0;
 		$booking_id++;
 		$uid = $booking_id.'-1-'.date('dmY');
 		
-		// Generate batch ID based on uptime limit and timestamp
-		$batch_id = strtoupper($limit_uptime) . '-' . date('mdHi');
+		// Generate batch ID based on package ID and timestamp (not uptime)
+		$batch_id = strtoupper($package_id) . '-' . date('mdHi');
 		
-		// Get price and expiry date from config
-		$price = getVoucherPrice($limit_uptime);
+		// Get expiry date from config
 		$expires_on = getExpiryDate();
 		
-		// NOTE: Removed the UPDATE that marked all previous vouchers as 'Over'
-		// Now each batch stays 'Active' until manually changed
+		// Store limit_uptime from package (empty for window packages)
+		$db_limit_uptime = ($package['type'] === 'duration') ? $package['limit_uptime'] : '';
 		
-		$stmt = $DB_con->prepare("insert into hotspot_vouchers (created_on, created_by, creator, user_name, password, printed_times,
-			printed_last, status, group_of, booking_id, limit_uptime, limit_bytes, profile, uid, batch_id, price, expires_on)
-			values(NOW(), :created_by, :creator, :user_name, :password, :printed_times, :printed_last, :status, :group_of, 
-			:booking_id, :limit_uptime, :limit_bytes, :profile, :uid, :batch_id, :price, :expires_on)");
-		$stmt->execute(array(':created_by' => $_SESSION['username'], ':creator' => $_SESSION['id'], ':user_name' => $username, ':password' => $password,
-			':printed_times' => 0, ':printed_last' => '', ':status' => 'Active', ':group_of' => 1,
-			':booking_id' => $booking_id, ':limit_uptime' => $limit_uptime, ':limit_bytes' => $limit_bytes,
-			':profile' => $profile, ':uid' => $uid, ':batch_id' => $batch_id, ':price' => $price, ':expires_on' => $expires_on));	
+		$stmt = $DB_con->prepare("INSERT INTO hotspot_vouchers (created_on, created_by, creator, user_name, password, printed_times,
+			printed_last, status, group_of, booking_id, limit_uptime, limit_bytes, profile, uid, batch_id, price, expires_on,
+			package_id, package_name, package_type)
+			VALUES(NOW(), :created_by, :creator, :user_name, :password, :printed_times, :printed_last, :status, :group_of, 
+			:booking_id, :limit_uptime, :limit_bytes, :profile, :uid, :batch_id, :price, :expires_on,
+			:package_id, :package_name, :package_type)");
+		$stmt->execute(array(
+			':created_by' => $_SESSION['username'], 
+			':creator' => $_SESSION['id'], 
+			':user_name' => $username, 
+			':password' => $password,
+			':printed_times' => 0, 
+			':printed_last' => '', 
+			':status' => 'Active', 
+			':group_of' => 1,
+			':booking_id' => $booking_id, 
+			':limit_uptime' => $db_limit_uptime, 
+			':limit_bytes' => $limit_bytes,
+			':profile' => $profile, 
+			':uid' => $uid, 
+			':batch_id' => $batch_id, 
+			':price' => $price, 
+			':expires_on' => $expires_on,
+			':package_id' => $package_id,
+			':package_name' => $package_name,
+			':package_type' => $package_type
+		));	
+		
+		// Log the voucher creation
+		require_once 'audit_log.php';
+		auditLog('voucher_create', "Created single voucher for $package_name ($package_id)");
 			
 		// here starts Echo String
 		$echo_text ='			
@@ -109,11 +182,11 @@ if ((!empty($username)) and (!empty($password)) and (!empty($profile))) {
 												</tr>
 												<tr>';
 												if (intval($limit_bytes) != 0) {
-													$echo_text .= '<td colspan="5">Validity : '.$limit_uptime.'; Counts from First login;  Data usage Maximum : '.$limit_bytes_total.' Bytes; Bandwidth : '.$profile.'; HAPPY BROWSING...</td>';
+													$echo_text .= '<td colspan="5">Package: '.$package_name.' ('.formatPrice($price).'); Data Limit: '.round($limit_bytes_total/1073741824, 2).' GB; Profile: '.$profile.'</td>';
 													}
 												else
 													{
-													$echo_text .= '<td colspan="5">Validity : '.$limit_uptime.'; Counts from First login; Bandwidth/Profile : '.$profile.'; HAPPY BROWSING...</td>';
+													$echo_text .= '<td colspan="5">Package: '.$package_name.' ('.formatPrice($price).'); Profile: '.$profile.'</td>';
 													}
 												$echo_text .= '
 												</tr>

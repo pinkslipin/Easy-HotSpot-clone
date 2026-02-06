@@ -2,17 +2,20 @@
 /**
  * AJAX handler to delete an entire batch of vouchers
  */
-session_start();
+require_once 'security_helper.php';
+secure_session_start();
+require_auth();
+csrf_require();
 require_once 'dbconfig.php';
 require_once 'config.php';
 
-// Check user permissions
-if (!isset($_SESSION['username']) || $_SESSION['user_level'] > 2) {
+// Check user permissions - require level 1 or 2
+if ($_SESSION['user_level'] > 2) {
     echo json_encode(['success' => false, 'message' => 'Access denied']);
     exit;
 }
 
-$batch_id = isset($_GET['batch_id']) ? $_GET['batch_id'] : '';
+$batch_id = isset($_POST['batch_id']) ? $_POST['batch_id'] : '';
 
 if (empty($batch_id)) {
     echo json_encode(['success' => false, 'message' => 'No batch ID provided']);
@@ -69,7 +72,8 @@ try {
     ]);
     
 } catch (Exception $e) {
-    echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
+    error_log('Batch delete error: ' . $e->getMessage());
+    echo json_encode(['success' => false, 'message' => 'Failed to delete batch']);
 }
 
 /**

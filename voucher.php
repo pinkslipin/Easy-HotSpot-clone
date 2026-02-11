@@ -1,6 +1,7 @@
 <?php
 // Start session FIRST before any HTML output
-if (session_status() === PHP_SESSION_NONE) session_start();
+require_once 'security_helper.php';
+secure_session_start();
 require_once 'pricing_config.php';
 // packages_config.php is now loaded via pricing_config.php
 

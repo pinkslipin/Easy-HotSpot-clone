@@ -16,28 +16,30 @@ if (true) {
 		// Mock doesn't track actual uptime usage, so nothing to expire
 		echo "0"; // No expired users removed in mock mode
 	} else {
-		// Real router mode
-		require_once 'PEAR2/Autoload.php';
-		$client = new \PEAR2\Net\RouterOS\Client("$host", "$user", "$pass");
-		$util = new \PEAR2\Net\RouterOS\Util($client);
+		// Real router mode - using modern library (RouterOS 6.43+/7.x compatible)
+		require_once 'routeros_api.php';
+		$connection = createRouterConnection($host, $user, $pass);
+		if (!$connection['success']) {
+			echo "0";
+			exit;
+		}
+		$util = $connection['util'];
+		$util->setMenu('/ip/hotspot/user');
 		
-		$printRequest = new \PEAR2\Net\RouterOS\Request('/ip hotspot user print');
-		$printRequest->setArgument('.proplist', '.id,limit-uptime,uptime,name');
-		$printRequest->setQuery(\PEAR2\Net\RouterOS\Query::where('.id', '*0', \PEAR2\Net\RouterOS\Query::OP_EQ)->not()); 
-
-		$idList = '';
-		foreach ($client->sendSync($printRequest)->getAllOfType(\PEAR2\Net\RouterOS\Response::TYPE_DATA) as $item) {
+		$items = $util->getAll('.id,limit-uptime,uptime,name');
+		$removeCount = 0;
+		foreach ($items as $item) {
 			if (!empty($item->getProperty('limit-uptime'))) {
 				if (!($item->getProperty('uptime') < $item->getProperty('limit-uptime'))) {
-					$idList .= ',' . $item->getProperty('.id');
+					$id = $item->getProperty('.id');
+					if ($id) {
+						$util->remove($id);
+						$removeCount++;
+					}
 				}
-			}	
+			}
 		}
-		$idList = substr($idList, 1);
-
-		$removeRequest = new \PEAR2\Net\RouterOS\Request('/ip hotspot user remove');
-		$removeRequest->setArgument('numbers', $idList);
-		$client->sendSync($removeRequest);
+		echo $removeCount;
 	}
 }
 //End Removing All Validity Expired Guest User Accounts

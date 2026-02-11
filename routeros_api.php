@@ -19,7 +19,7 @@ use RouterOS\Config;
 /**
  * Modern RouterOS Util class - compatible with old PEAR2 interface
  */
-class ModernRouterUtil {
+class ModernRouterUtil implements \Countable {
     private $client;
     private $menu = '/ip/hotspot/user';
     

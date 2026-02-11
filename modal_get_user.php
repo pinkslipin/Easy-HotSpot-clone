@@ -31,7 +31,8 @@
 						<div class="col-xs-7">
 							<select id="user_level" onChange="genClick();" name="user_level" required tabindex="4">
 								<?php
-								switch ($row['user_level']) {
+								$current_level = isset($row['user_level']) ? $row['user_level'] : 3;
+								switch ($current_level) {
 									case 1 :
 										echo '<option value="1">Administrator</option>';
 										break;

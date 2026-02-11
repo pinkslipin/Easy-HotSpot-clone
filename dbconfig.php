@@ -1,7 +1,7 @@
 <?php
 	$DB_host = "localhost";
 	$DB_user = "root";
-	$DB_pass = "";           // XAMPP default is empty password
+	$DB_pass = "WildcatY3rn";           // XAMPP default is empty password
 	$DB_name = "mikrotik";
 
 	try

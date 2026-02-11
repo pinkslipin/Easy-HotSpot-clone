@@ -41,7 +41,7 @@ if (isset($_GET['username'])) $username = $_GET['username'];
 	4 - 
  
 */
-if (strtolower($action) == 'checkin')) {
+if (strtolower($action) == 'checkin') {
 	if (!empty($username)) {
 		if (isset($_GET['password'])) { $password = $_GET['password']; } else { $password = $username; } 
 		if (isset($_GET['limit_uptime'])) $limit_uptime = $_GET['limit_uptime'];
@@ -120,7 +120,7 @@ else
 	}	
 	//End Adding a Guest User
 }
-elseif (strtolower($action) == 'checkout'))  {
+elseif (strtolower($action) == 'checkout')  {
 	//Removal
 	$username=trim($_GET['username']);
 	if (!empty($username)) {

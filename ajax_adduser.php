@@ -20,8 +20,15 @@ if (defined('MOCK_MODE') && MOCK_MODE === true) {
 	$util = new MockRouterUtil();
 	$client = new MockClient();
 } else {
-	require_once 'PEAR2/Autoload.php';
-	$util = new PEAR2\Net\RouterOS\Util($client = new PEAR2\Net\RouterOS\Client("$host", "$user", "$pass"));
+	// Use modern RouterOS API library (works with RouterOS 6.43+ and 7.x)
+	require_once 'routeros_api.php';
+	$connection = createRouterConnection($host, $user, $pass);
+	if (!$connection['success']) {
+		echo '<script>cmodalOkCancel("ERROR", "Router connection failed: '.addslashes($connection['error']).'", "error");</script>';
+		exit;
+	}
+	$util = $connection['util'];
+	$client = $connection['client'];
 }
 
 if (isset($_POST['name'])) $username = trim($_POST['name']);

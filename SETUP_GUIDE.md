@@ -120,7 +120,7 @@ Speed profiles come from the MikroTik router (or mock data in dev mode).
 **Mock Mode:** Edit `mock_router.php`:
 ```php
 'profiles' => [
-    ['name' => '1Mbps', 'rate-limit' => '1M/1M', 'shared-users' => '1'],
+    ['name' => '1Mbps', 'rate-limit' => '1M/1M', 'shared-users' => '1'], 
     ['name' => '2Mbps', 'rate-limit' => '2M/2M', 'shared-users' => '1'],
     ['name' => '5Mbps', 'rate-limit' => '5M/5M', 'shared-users' => '1'],
     ['name' => '10Mbps', 'rate-limit' => '10M/10M', 'shared-users' => '1'],

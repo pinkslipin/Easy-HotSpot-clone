@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to MindSpace</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #66eaa6 0%, #4ba14a 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .login-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+            max-width: 400px;
+            width: 100%;
+        }
+        .login-header {
+            background: linear-gradient(135deg, #66eaa6 0%, #4ba14a 100%);
+            color: #ffffff;
+            padding: 30px;
+            text-align: center;
+        }
+        .login-header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+        .login-header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        .login-body {
+            padding: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+        .form-group input[type="text"],
+        .form-group input[type="password"] {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: #041b08;
+        }
+        .login-btn {
+            width: 100%;
+            padding: 15px;
+            background: #041b08;
+            color: #ffffff;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+        }
+        .price-list {
+            background: #f8f9fa;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 10px;
+        }
+        .price-list h3 {
+            text-align: center;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        .price-list h4 {
+            font-size: 12px;
+            margin: 10px 0 5px;
+            opacity: 0.9;
+        }
+        .price-list ul {
+            list-style: none;
+        }
+        .price-list li {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .price-list li:last-child {
+            border-bottom: none;
+        }
+        .price-list .time {
+            font-weight: 500;
+        }
+        .price-list .price {
+            color: #041b08;
+            font-weight: 700;
+        }
+        .login-footer {
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            font-size: 12px;
+            color: #999;
+        }
+        .error-msg {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <h1>Welcome to MindSpace</h1>
+            <p>Please login to continue</p>
+        </div>
+        <div class="login-body">
+            $(if error)
+            <div class="error-msg">$(error)</div>
+            $(endif)
+
+            <form name="login" action="$(link-login-only)" method="post"
+                  $(if chap-id)onSubmit="return doLogin()"$(endif)>
+                <input type="hidden" name="dst" value="$(link-orig)" />
+                <input type="hidden" name="popup" value="true" />
+
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" name="username" placeholder="Enter your username" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" name="password" placeholder="Enter your password" required>
+                </div>
+
+                <div class="price-list">
+                    <h3>WiFi Packages</h3>
+                    <h4>Individual Passes</h4>
+                    <ul>
+                        <li><span class="time">1 Hour</span><span class="price">&#8369;50.00</span></li>
+                        <li><span class="time">3 Hours</span><span class="price">&#8369;138.00</span></li>
+                        <li><span class="time">5 Hours</span><span class="price">&#8369;188.00</span></li>
+                    </ul>
+                    <h4>Daily Access (Time Window)</h4>
+                    <ul>
+                        <li><span class="time">Day Pass (8AM-6PM)</span><span class="price">&#8369;238.00</span></li>
+                        <li><span class="time">Night Pass (6PM-5AM)</span><span class="price">&#8369;208.00</span></li>
+                        <li><span class="time">Unli (8AM-5AM next day)</span><span class="price">&#8369;308.00</span></li>
+                    </ul>
+                    <h4>Mindspace Unli Passes</h4>
+                    <ul>
+                        <li><span class="time">Weekly Pass</span><span class="price">&#8369;1,888.00</span></li>
+                        <li><span class="time">15 Days Pass</span><span class="price">&#8369;2,988.00</span></li>
+                        <li><span class="time">Monthly Pass</span><span class="price">&#8369;5,888.00</span></li>
+                    </ul>
+                </div>
+
+                <button type="submit" class="login-btn">Connect to WiFi</button>
+            </form>
+        </div>
+        <div class="login-footer">
+            Powered by bonakid
+        </div>
+    </div>
+
+    <!-- CHAP authentication support - REQUIRED by MikroTik hotspot -->
+    $(if chap-id)
+    <script src="/md5.js"></script>
+    <script>
+    function doLogin() {
+        document.login.password.value =
+            hexMD5('$(chap-id)' + document.login.password.value + '$(chap-challenge)');
+        return true;
+    }
+    </script>
+    $(endif)
+</body>
+</html>

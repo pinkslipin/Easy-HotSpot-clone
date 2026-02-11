@@ -1,14 +1,22 @@
 <?php
 header('Content-Type: application/json');
-use PEAR2\Net\RouterOS;
-require_once 'PEAR2/Autoload.php';
 require_once 'config.php';
 require_once 'security_helper.php';
 secure_session_start();
 require_admin();
 csrf_require();
+
+if (defined('MOCK_MODE') && MOCK_MODE === true) {
+	require_once 'mock_router.php';
+	$util = new MockRouterUtil();
+} else {
+	require_once 'routeros_api.php';
+	$connection = createRouterConnection($host, $user, $pass);
+	if (!$connection['success']) { echo 0; exit; }
+	$util = $connection['util'];
+	$client = $connection['client'];
+}
 if (true) {
-	$util = new RouterOS\Util($client = new RouterOS\Client("$host", "$user", "$pass"));
 
 	$profile_name=strtolower($_POST['profile_name']);
 	$session_timeout=$_POST['session_timeout'];
@@ -64,37 +72,24 @@ if (true) {
 	
 	if (!empty($profile_name)) {
 		
-		$printRequest = new RouterOS\Request('/ip/hotspot/user/profile/print');
-		$printRequest->setArgument('.proplist', '.id');
-		$printRequest->setQuery(RouterOS\Query::where('name', $profile_name));
-		$id = $client->sendSync($printRequest)->getProperty('.id');
-
-		$setRequest = new RouterOS\Request('/ip/hotspot/user/profile/set');
-		$setRequest->setArgument('numbers', $id);
-		$setRequest->setArgument('rate-limit', $rate_limit);
-/*
-		if(strtolower($session_timeout) != 'none') { 
-			$setRequest->setArgument('session-timeout', $session_timeout);
-		}
-		else
-			{
-			$setRequest->setArgument('session-timeout', '00:00:00');
-		}
-		$setRequest->setArgument('mac-cookie-timeout', $mac_cookie_timeout);
-		$setRequest->setArgument('keepalive-timeout', $keepalive_timeout);
-*/
-		$setRequest->setArgument('shared-users', $shared_users);		
-		$setRequest->setArgument('status-autorefresh', "1m");
-		$setRequest->setArgument('transparent-proxy', "yes");
-		$setRequest->setArgument('on-login', "$login_script");
+		// Use modern library to find and update the profile
+		$util->setMenu('/ip/hotspot/user/profile');
+		$items = $util->find('name', $profile_name);
 		
-		$client->sendSync($setRequest);
-		/*
-		if(strtolower($session_timeout) == 'none') {
-			$id = $client->sendSync(new Request('/ip/hotspot/user/profile/print .proplist=.id', null, Query::where('name', $profile_name)))->getArgument('.id');
-			$util->setMenu('/ip hotspot user profile');
-			$util->unsetValue($id, 'session-timeout');
-		} */
+		if (!empty($items)) {
+			$id = $items[0]->getProperty('.id');
+			
+			// Build the set query using modern library
+			$query = new \RouterOS\Query('/ip/hotspot/user/profile/set');
+			$query->equal('.id', $id);
+			$query->equal('rate-limit', $rate_limit);
+			$query->equal('shared-users', (string)$shared_users);
+			$query->equal('status-autorefresh', '1m');
+			$query->equal('transparent-proxy', 'yes');
+			$query->equal('on-login', $login_script);
+			
+			$client->query($query)->read();
+		}
 		echo 2; //Success
 	}
 	else

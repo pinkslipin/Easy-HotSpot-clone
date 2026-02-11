@@ -1,14 +1,22 @@
 <?php
 header('Content-Type: application/json');
-use PEAR2\Net\RouterOS;
-require_once 'PEAR2/Autoload.php';
 require_once 'config.php';
 require_once 'security_helper.php';
 secure_session_start();
 require_admin();
 csrf_require();
+
+if (defined('MOCK_MODE') && MOCK_MODE === true) {
+	require_once 'mock_router.php';
+	$util = new MockRouterUtil();
+} else {
+	require_once 'routeros_api.php';
+	$connection = createRouterConnection($host, $user, $pass);
+	if (!$connection['success']) { echo 0; exit; }
+	$util = $connection['util'];
+	$client = $connection['client'];
+}
 if (true) {
-	$util = new RouterOS\Util($client = new RouterOS\Client("$host", "$user", "$pass"));
 
 	$profile_name=strtolower($_POST['profile_name']);
 	$session_timeout=$_POST['session_timeout'];

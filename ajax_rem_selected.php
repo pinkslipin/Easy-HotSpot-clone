@@ -32,20 +32,19 @@ if (true) {
 			require_once 'audit_log.php';
 			auditLog('user_delete', "Removed $i selected users");
 		} else {
-			// Real router mode
-			require_once 'PEAR2/Autoload.php';
-			$client = new \PEAR2\Net\RouterOS\Client("$host", "$user", "$pass");
-			$util = new \PEAR2\Net\RouterOS\Util($client);
-			
-			$printRequest = new \PEAR2\Net\RouterOS\Request('/ip/hotspot/user/print');
-			$printRequest->setArgument('.proplist', '.id,name');
-			$removeRequest = new \PEAR2\Net\RouterOS\Request('/ip/hotspot/user/remove');
+			// Real router mode - using modern library (RouterOS 6.43+/7.x compatible)
+			require_once 'routeros_api.php';
+			$connection = createRouterConnection($host, $user, $pass);
+			if (!$connection['success']) {
+				echo -1;
+				exit;
+			}
+			$util = $connection['util'];
+			$util->setMenu('/ip/hotspot/user');
 			foreach ($guest_list as $guest) {
-				$i++;
-				$printRequest->setQuery(\PEAR2\Net\RouterOS\Query::where('name', $guest));
-				$id = $client->sendSync($printRequest)->getProperty('.id');
-				$removeRequest->setArgument('numbers', $id);
-				$client->sendSync($removeRequest);
+				if ($util->removeUser($guest)) {
+					$i++;
+				}
 			}
 		}
 		echo $i;

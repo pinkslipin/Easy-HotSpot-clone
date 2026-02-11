@@ -1,0 +1,17 @@
+{
+    "title": "Welcome to MindSpace",
+    "subtitle": "Please login to continue",
+    "logo_url": "",
+    "background_color": "#66eaa6",
+    "background_gradient": "#4ba14a",
+    "text_color": "#ffffff",
+    "button_color": "#041b08",
+    "button_text_color": "#ffffff",
+    "show_price_list": true,
+    "custom_css": "",
+    "footer_text": "Powered by bonakid",
+    "terms_enabled": false,
+    "terms_text": "By logging in, you agree to our terms of service.",
+    "support_contact": "",
+    "wifi_name": "MindSpace "
+}

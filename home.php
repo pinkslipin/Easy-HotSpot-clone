@@ -141,7 +141,7 @@ require_once 'pricing_config.php';
                 <a href="dashboard.php" class="btn"><i class="fa fa-line-chart"></i> Dashboard</a>
                 <a href="voucher.php" class="btn"><i class="fa fa-print"></i> Print Vouchers</a>
                 <a href="portal.php" class="btn"><i class="fa fa-paint-brush"></i> Customize Portal</a>
-                <button onclick="log_out()" class="btn btn-logout"><i class="fa fa-sign-out"></i> Logout (<?php echo htmlspecialchars($_SESSION['username'], ENT_QUOTES, 'UTF-8'); ?>)</button>
+                <button onclick="log_out()" class="btn btn-logout"><i class="fa fa-sign-out"></i> Logout (<?php echo htmlspecialchars(isset($_SESSION['username']) ? $_SESSION['username'] : 'Admin User', ENT_QUOTES, 'UTF-8'); ?>)</button>
             </div>
         </div>
 		
@@ -1168,6 +1168,7 @@ function clearServerLogs() {
     $.ajax({
         url: 'ajax_clear_logs.php',
         type: 'POST',
+        data: { csrf_token: CSRF_TOKEN },
         dataType: 'json',
         success: function(response) {
             if (response.success) {

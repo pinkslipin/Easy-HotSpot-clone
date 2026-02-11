@@ -5,7 +5,7 @@
  * MOCK_MODE: Set to true when you don't have a physical MikroTik router
  *            This allows testing voucher creation locally
  * 
- * When you get a real router, set MOCK_MODE to false and configure:
+ * When you get a real router, set MOCK_MODE to false and configure: 
  * - $host: Your MikroTik router's IP address
  * - $user: RouterOS username with API access
  * - $pass: RouterOS password
@@ -21,10 +21,10 @@ ini_set('display_errors', 0);
 
 // ============ MOCK MODE ============
 // Set to false when connecting to a real MikroTik router
-define('MOCK_MODE', true);
+define('MOCK_MODE', false);
 
 // ============ ROUTER CREDENTIALS ============
-$host = "192.168.254.113";  // MikroTik router IP address
-$user = "api";              // RouterOS API username  
-$pass = "api";              // RouterOS API password
+$host = "192.168.88.1";       // MikroTik hAP ac3 hotspot gateway IP
+$user = "hotspot-api";      // RouterOS API username  
+$pass = "Pinkslippy1@";     // RouterOS API password
 ?>

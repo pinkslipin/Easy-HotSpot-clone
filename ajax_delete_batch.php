@@ -47,6 +47,19 @@ try {
                     // Continue even if one fails
                 }
             }
+
+            // Kick active sessions so devices lose internet access immediately
+            $util->setMenu('/ip/hotspot/active');
+            foreach ($vouchers as $voucher) {
+                try {
+                    $activeSessions = $util->find('user', $voucher['user_name']);
+                    foreach ($activeSessions as $session) {
+                        $util->remove($session->getProperty('.id'));
+                    }
+                } catch (Exception $e) {
+                    // Continue even if one fails
+                }
+            }
         }
     } else {
         // Mock mode - remove from JSON

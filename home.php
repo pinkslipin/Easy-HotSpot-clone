@@ -569,39 +569,11 @@ require_once 'pricing_config.php';
 						<button data-dismiss="modal" class="btn btn-info center-element" ><i class="icon-save icon-large"></i>&nbsp;BACK</button>
 					</div>
                     <div class="col-sm-12 col-md-12 thumbnail" style="box-shadow: 10px 10px 5px #888888;">
-						<?php $util->setMenu('/ip hotspot active'); ?>
-						<table cellpadding="0" cellspacing="0" border="0" class="table  table-bordered" id="table-01">
-							<div class="alert alert-info">
-								<strong><i class="icon-user icon-large"></i><h3 class="text-center">List of Users Active at the moment</h3></strong>
+						<div id="active-users-content">
+							<div class="text-center" style="padding:40px;">
+								<i class="fa fa-spinner fa-spin fa-2x"></i><br>Loading active users...
 							</div>
-							<thead>
-								<tr>
-									<th>#</th>
-									<th>Server</th>
-									<th>Domain</th>
-									<th>User</th>
-									<th>IP Address</th>
-									<th>Uptime</th>
-									<th>Session Time left</th>
-								</tr>
-							</thead>
-							<tbody>
-								<?php
-								$i = 0;
-								foreach ($util->getAll() as $item) {
-									$i++;	
-									echo '<tr>';
-										echo '<td>'.$i.'</td>';
-										echo '<td>', $item->getProperty('server'),'</td>';
-										echo '<td>', $item->getProperty('domain'), '</td>';
-										echo '<td>', $item->getProperty('user'),'</td>';
-										echo '<td>', $item->getProperty('address'), '</td>';
-										echo '<td>', $item->getProperty('uptime'), '</td>';
-										echo '<td>', $item->getProperty('session-time-left'), '</td>';
-									echo '</tr>';
-								} ?>
-							</tbody>
-						</table>
+						</div>
                     </div>
 					<div class="col-sm-2 col-sm-offset-5">
 						<button data-dismiss="modal" class="btn btn-info center-element" ><i class="icon-save icon-large"></i>&nbsp;BACK</button>
@@ -610,6 +582,38 @@ require_once 'pricing_config.php';
             </div>
         </div>
         <!-- 4. End List Active Users Section -->
+
+		<!-- 4b. Extend User Time Modal -->
+		<div class="modal fade" id="extend-user-modal" tabindex="-1" role="dialog" aria-labelledby="extendModalLabel">
+			<div class="modal-dialog modal-sm" role="document">
+				<div class="modal-content">
+					<div class="modal-header" style="background:#f0ad4e;">
+						<button type="button" class="close" data-dismiss="modal">&times;</button>
+						<h4 class="modal-title" id="extendModalLabel"><i class="fa fa-clock-o"></i> Extend Time for <span id="extend-username-display"></span></h4>
+					</div>
+					<div class="modal-body">
+						<input type="hidden" id="extend-username-value" value="">
+						<div class="form-group">
+							<label>Add Time:</label>
+							<select id="extend-minutes" class="form-control">
+								<option value="30">+30 Minutes</option>
+								<option value="60" selected>+1 Hour</option>
+								<option value="120">+2 Hours</option>
+								<option value="180">+3 Hours</option>
+								<option value="300">+5 Hours</option>
+								<option value="360">+6 Hours</option>
+							</select>
+						</div>
+						<p class="text-muted" style="font-size:12px;"><i class="fa fa-info-circle"></i> Time is added to the user's remaining limit. They will NOT be disconnected.</p>
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+						<button type="button" class="btn btn-warning" onclick="submitExtend()"><i class="fa fa-check"></i> Extend Time</button>
+					</div>
+				</div>
+			</div>
+		</div>
+		<!-- 4b. End Extend User Time Modal -->
 
 		<!-- 5. Start Remove Selected users Section -->
         <div class="child-modal modal fade" id="remove-selected" tabindex="-1" role="dialog" aria-hidden="true">
@@ -1184,6 +1188,113 @@ function clearServerLogs() {
         }
     });
 }
+
+// ── Extend User Time ──────────────────────────────────────────────────────
+function openExtendModal(username) {
+    $('#extend-username-display').text(username);
+    $('#extend-username-value').val(username);
+    $('#extend-minutes').val('60'); // default 1 hour
+    $('#extend-user-modal').modal('show');
+}
+
+function submitExtend() {
+    var username = $('#extend-username-value').val();
+    var mins     = $('#extend-minutes').val();
+
+    $.ajax({
+        url: 'ajax_extend_user.php',
+        type: 'POST',
+        data: { csrf_token: CSRF_TOKEN, username: username, extend_minutes: mins },
+        dataType: 'json',
+        success: function(res) {
+            $('#extend-user-modal').modal('hide');
+            if (res.success) {
+                cmodal('Time Extended', res.message, 'success');
+                // Refresh the active users table to show updated time
+                loadActiveUsers();
+            } else {
+                cmodal('Error', res.message, 'error');
+            }
+        },
+        error: function() {
+            $('#extend-user-modal').modal('hide');
+            cmodal('Error', 'Failed to contact router. Please try again.', 'error');
+        }
+    });
+}
+
+// ── Live Active Users Table ───────────────────────────────────────────────
+var activeUsersTimer = null;
+
+function loadActiveUsers() {
+    $.ajax({
+        url: 'ajax_active_users.php',
+        type: 'POST',
+        data: { csrf_token: CSRF_TOKEN },
+        dataType: 'json',
+        success: function(res) {
+            if (!res.success) {
+                $('#active-users-content').html(
+                    '<div class="alert alert-danger">Failed to load: ' + (res.message || 'Unknown error') + '</div>'
+                );
+                return;
+            }
+            var users = res.users;
+            var html = '<div class="alert alert-info">' +
+                '<strong><i class="icon-user icon-large"></i>' +
+                '<h3 class="text-center">List of Users Active at the moment' +
+                ' <small style="font-size:12px;color:#666;">(' + users.length + ' online &bull; refreshes every 30s)</small></h3></strong></div>' +
+                '<table cellpadding="0" cellspacing="0" border="0" class="table table-bordered">' +
+                '<thead><tr>' +
+                '<th>#</th><th>Server</th><th>Domain</th><th>User</th>' +
+                '<th>IP Address</th><th>Session Uptime</th><th>Voucher Time Left</th><th>Actions</th>' +
+                '</tr></thead><tbody>';
+
+            if (users.length === 0) {
+                html += '<tr><td colspan="8" class="text-center">No active users at the moment.</td></tr>';
+            } else {
+                for (var i = 0; i < users.length; i++) {
+                    var u = users[i];
+                    var vStyle = u.expired ? 'color:red' : (u.voucherLeft === 'Unlimited' ? 'color:gray' : '');
+                    html += '<tr>' +
+                        '<td>' + (i+1) + '</td>' +
+                        '<td>' + escHtml(u.server)  + '</td>' +
+                        '<td>' + escHtml(u.domain)  + '</td>' +
+                        '<td>' + escHtml(u.user)    + '</td>' +
+                        '<td>' + escHtml(u.address)  + '</td>' +
+                        '<td>' + escHtml(u.sessionUp) + '</td>' +
+                        '<td><strong style="' + vStyle + '">' + escHtml(u.voucherLeft) + '</strong></td>' +
+                        '<td><button class="btn btn-xs btn-warning" onclick="openExtendModal(\'' + escHtml(u.user) + '\')"><i class="fa fa-clock-o"></i> Extend</button></td>' +
+                        '</tr>';
+                }
+            }
+            html += '</tbody></table>';
+            $('#active-users-content').html(html);
+        },
+        error: function() {
+            $('#active-users-content').html(
+                '<div class="alert alert-danger">Could not reach the server. Check your connection.</div>'
+            );
+        }
+    });
+}
+
+function escHtml(str) {
+    if (!str) return '';
+    return $('<span/>').text(str).html();
+}
+
+// Load on modal open, start 30s refresh; stop on close
+// NOTE: Use 'show/hide.bs.modal' instead of 'shown/hidden.bs.modal' because
+// these child-modals have no .modal-dialog wrapper, so the Bootstrap 3 fade
+// transition callback (which fires 'shown') never executes.
+$('#active-users').on('show.bs.modal', function() {
+    loadActiveUsers();
+    activeUsersTimer = setInterval(loadActiveUsers, 30000);
+});
+$('#active-users').on('hide.bs.modal', function() {
+    if (activeUsersTimer) { clearInterval(activeUsersTimer); activeUsersTimer = null; }
+});
 </script>
 		
 </body>

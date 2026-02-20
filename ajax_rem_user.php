@@ -30,6 +30,15 @@ if (defined('MOCK_MODE') && MOCK_MODE === true) {
         $util = $connection['util'];
         $util->setMenu('/ip/hotspot/user');
         $util->removeUser($guest_name);
+
+        // Kick any active sessions belonging to this user so the device
+        // loses internet access immediately (MikroTik keeps the session
+        // alive even after the user record is deleted).
+        $util->setMenu('/ip/hotspot/active');
+        $activeSessions = $util->find('user', $guest_name);
+        foreach ($activeSessions as $session) {
+            $util->remove($session->getProperty('.id'));
+        }
     }
 }
 ?>

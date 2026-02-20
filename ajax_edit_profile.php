@@ -88,7 +88,7 @@ if (true) {
 			$query->equal('transparent-proxy', 'yes');
 			$query->equal('on-login', $login_script);
 			
-			$client->query($query)->read();
+			$client->query($query); // ModernRouterClient::query() already reads internally
 		}
 		echo 2; //Success
 	}

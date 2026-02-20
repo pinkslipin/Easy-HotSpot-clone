@@ -46,6 +46,15 @@ if (true) {
 					$i++;
 				}
 			}
+
+			// Kick active sessions so devices lose internet access immediately
+			$util->setMenu('/ip/hotspot/active');
+			foreach ($guest_list as $guest) {
+				$activeSessions = $util->find('user', $guest);
+				foreach ($activeSessions as $session) {
+					$util->remove($session->getProperty('.id'));
+				}
+			}
 		}
 		echo $i;
 	}

@@ -6,6 +6,28 @@
  * UPDATED: Now uses modern RouterOS API library (RouterOS 6.43+/7.x compatible)
  */
 require_once 'config.php';
+require_once 'security_helper.php';
+
+// ── Security ──────────────────────────────────────────────────────────────
+// If HOTSOFT_API_KEY is defined in config.php, require it as ?api_key=XXX.
+// Otherwise restrict to localhost-only to prevent unauthenticated access.
+if (defined('HOTSOFT_API_KEY') && HOTSOFT_API_KEY !== '') {
+    $provided_key = isset($_REQUEST['api_key']) ? $_REQUEST['api_key'] : '';
+    if (!hash_equals(HOTSOFT_API_KEY, $provided_key)) {
+        http_response_code(403);
+        echo 6; // Access denied
+        exit;
+    }
+} else {
+    // No API key configured — only allow calls from this machine
+    $caller = $_SERVER['REMOTE_ADDR'] ?? '';
+    if ($caller !== '127.0.0.1' && $caller !== '::1') {
+        http_response_code(403);
+        echo 6; // Access denied
+        exit;
+    }
+}
+
 require_once 'routeros_api.php';
 
 // Create router connection

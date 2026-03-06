@@ -1,4 +1,4 @@
-<?php 
+﻿<?php 
 require_once 'pricing_config.php'; 
 // packages_config.php is now loaded via pricing_config.php
 ?>
@@ -139,6 +139,7 @@ require_once 'pricing_config.php';
             <p>WiFi Hotspot Voucher Management System</p>
             <div class="header-actions">
                 <a href="dashboard.php" class="btn"><i class="fa fa-line-chart"></i> Dashboard</a>
+                <a href="seats.php" class="btn"><i class="fa fa-th-large"></i> Seat Map</a>
                 <a href="voucher.php" class="btn"><i class="fa fa-print"></i> Print Vouchers</a>
                 <a href="portal.php" class="btn"><i class="fa fa-paint-brush"></i> Customize Portal</a>
                 <button onclick="log_out()" class="btn btn-logout"><i class="fa fa-sign-out"></i> Logout (<?php echo htmlspecialchars(isset($_SESSION['username']) ? $_SESSION['username'] : 'Admin User', ENT_QUOTES, 'UTF-8'); ?>)</button>
@@ -236,6 +237,9 @@ require_once 'pricing_config.php';
                     <h4><i class="fa fa-star"></i> Quick Links</h4>
                     <a href="dashboard.php" class="action-btn btn-green">
                         <i class="fa fa-line-chart"></i> Sales Dashboard
+                    </a>
+                    <a href="seats.php" class="action-btn btn-blue">
+                        <i class="fa fa-th-large"></i> Seat Map
                     </a>
                     <a href="portal.php" class="action-btn btn-teal">
                         <i class="fa fa-paint-brush"></i> Captive Portal
@@ -755,41 +759,49 @@ require_once 'pricing_config.php';
 										require_once 'mock_router.php';
 										echo '<tr><td colspan="9" class="text-center">Mock mode: No expired users tracking available</td></tr>';
 									} else {
-										// Real router mode - using modern library
-										require_once 'routeros_api.php';
-										$connection = createRouterConnection($host, $user, $pass);
-										
-										if ($connection['success']) {
-											$util = $connection['util'];
-											$util->setMenu('/ip/hotspot/user');
-											$items = $util->getAll('.id,server,name,profile,limit-uptime,limit-bytes-total,uptime,bytes-in,bytes-out');
-											
-											$i = 0;
-											foreach ($items as $item) {
-												$limitUptime = $item->getProperty('limit-uptime');
-												$uptime = $item->getProperty('uptime');
-												
-												if (!empty($limitUptime) && $uptime >= $limitUptime) {
-													$i++;
-													echo '<tr>';
-														echo '<td>'.$i.'</td>';
-														echo '<td>', $item->getProperty('server'),'</td>';
-														echo '<td>', $item->getProperty('name'), '</td>';
-														echo '<td>', $item->getProperty('profile'), '</td>';
-														echo '<td>', $item->getProperty('limit-uptime'), '</td>';
-														echo '<td>', $item->getProperty('uptime'),'</td>';
-														echo '<td>', $item->getProperty('limit-bytes-total'), '</td>';
-														echo '<td>', $item->getProperty('bytes-in'), '</td>';
-														echo '<td>', $item->getProperty('bytes-out'), '</td>';
-													echo '</tr>';
-												}
+										// Real router mode - reuse existing $util connection from index.php
+										// (opening a second connection per page load is wasteful and unnecessary)
+										$util->setMenu('/ip/hotspot/user');
+										$items = $util->getAll('.id,server,name,profile,limit-uptime,limit-bytes-total,uptime,bytes-in,bytes-out');
+
+										// Parse RouterOS time to seconds for correct comparison.
+										// String comparison is wrong: '30m' > '1h' because '3' > '1'.
+										$parseRosDisplay = function($t) {
+											if (empty($t)) return 0;
+											$s = 0;
+											if (preg_match('/^(\d+):(\d+):(\d+)$/', $t, $m)) return (int)$m[1]*3600+(int)$m[2]*60+(int)$m[3];
+											if (preg_match('/(\d+)w/', $t, $m)) $s += (int)$m[1]*604800;
+											if (preg_match('/(\d+)d/', $t, $m)) $s += (int)$m[1]*86400;
+											if (preg_match('/(\d+)h/', $t, $m)) $s += (int)$m[1]*3600;
+											if (preg_match('/(\d+)m/', $t, $m)) $s += (int)$m[1]*60;
+											if (preg_match('/(\d+)s/', $t, $m)) $s += (int)$m[1];
+											return $s;
+										};
+
+										$i = 0;
+										foreach ($items as $item) {
+											$limitUptime = $item->getProperty('limit-uptime');
+											$uptime      = $item->getProperty('uptime');
+
+											if (!empty($limitUptime) && $parseRosDisplay($limitUptime) > 0
+												&& $parseRosDisplay($uptime) >= $parseRosDisplay($limitUptime)) {
+												$i++;
+												echo '<tr>';
+													echo '<td>'.$i.'</td>';
+													echo '<td>', $item->getProperty('server'),'</td>';
+													echo '<td>', $item->getProperty('name'), '</td>';
+													echo '<td>', $item->getProperty('profile'), '</td>';
+													echo '<td>', $item->getProperty('limit-uptime'), '</td>';
+													echo '<td>', $item->getProperty('uptime'),'</td>';
+													echo '<td>', $item->getProperty('limit-bytes-total'), '</td>';
+													echo '<td>', $item->getProperty('bytes-in'), '</td>';
+													echo '<td>', $item->getProperty('bytes-out'), '</td>';
+												echo '</tr>';
 											}
-											
-											if ($i === 0) {
-												echo '<tr><td colspan="9" class="text-center">No expired users found</td></tr>';
-											}
-										} else {
-											echo '<tr><td colspan="9" class="text-center">Router connection failed: ' . htmlspecialchars($connection['error']) . '</td></tr>';
+										}
+
+										if ($i === 0) {
+											echo '<tr><td colspan="9" class="text-center">No expired users found</td></tr>';
 										}
 									}
 								}
@@ -1264,7 +1276,11 @@ function loadActiveUsers() {
                         '<td>' + escHtml(u.address)  + '</td>' +
                         '<td>' + escHtml(u.sessionUp) + '</td>' +
                         '<td><strong style="' + vStyle + '">' + escHtml(u.voucherLeft) + '</strong></td>' +
-                        '<td><button class="btn btn-xs btn-warning" onclick="openExtendModal(\'' + escHtml(u.user) + '\')"><i class="fa fa-clock-o"></i> Extend</button></td>' +
+                        '<td>' +
+                        '<button class="btn btn-xs btn-warning" onclick="openExtendModal(\'' + escHtml(u.user) + '\')"><i class="fa fa-clock-o"></i> Extend</button> ' +
+                        '<button class="btn btn-xs btn-info"    onclick="resetUserSession(\'' + escHtml(u.user) + '\')"><i class="fa fa-refresh"></i> Reset</button> ' +
+                        '<button class="btn btn-xs btn-danger"  onclick="kickActiveUser(\'' + escHtml(u.user) + '\')"><i class="fa fa-trash"></i> Remove</button>' +
+                        '</td>' +
                         '</tr>';
                 }
             }
@@ -1282,6 +1298,41 @@ function loadActiveUsers() {
 function escHtml(str) {
     if (!str) return '';
     return $('<span/>').text(str).html();
+}
+
+function kickActiveUser(username) {
+    if (!confirm('REMOVE "' + username + '"?\n\nThis permanently deletes the user account and marks the voucher as used. The credentials will no longer work.\n\nUse "Reset" instead if you just want to disconnect the device and let the correct user log in.')) return;
+    $.ajax({
+        url    : 'ajax_rem_user.php',
+        method : 'POST',
+        data   : { csrf_token: CSRF_TOKEN, username: username },
+        success: function() {
+            loadActiveUsers();
+        },
+        error: function() {
+            alert('Network error — could not remove user.');
+        }
+    });
+}
+
+function resetUserSession(username) {
+    if (!confirm('Reset session for "' + username + '"?\n\nThis will:\n• Disconnect the device immediately\n• Clear the MAC address binding\n• Redirect the device to the login portal\n\nThe voucher stays valid — the correct user can log in with the same credentials.')) return;
+    $.ajax({
+        url    : 'ajax_kick_session.php',
+        method : 'POST',
+        data   : { csrf_token: CSRF_TOKEN, username: username },
+        dataType: 'json',
+        success: function(res) {
+            if (res.success) {
+                loadActiveUsers();
+            } else {
+                alert('Error: ' + (res.message || 'Reset failed.'));
+            }
+        },
+        error: function() {
+            alert('Network error — could not reset session.');
+        }
+    });
 }
 
 // Load on modal open, start 30s refresh; stop on close

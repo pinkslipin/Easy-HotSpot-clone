@@ -1,4 +1,7 @@
 <?php
+	// ── Timezone: Philippines Standard Time (UTC+8) ───────────────────────────
+	date_default_timezone_set('Asia/Manila');
+
 	$DB_host = "localhost";
 	$DB_user = "root";
 	$DB_pass = "WildcatY3rn";           // XAMPP default is empty password

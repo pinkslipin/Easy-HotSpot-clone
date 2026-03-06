@@ -39,6 +39,15 @@ if (defined('MOCK_MODE') && MOCK_MODE === true) {
         foreach ($activeSessions as $session) {
             $util->remove($session->getProperty('.id'));
         }
+
+        // Update DB status so the dashboard and voucher print list reflect the removal.
+        require_once 'dbconfig.php';
+        try {
+            $stmt = $DB_con->prepare("UPDATE hotspot_vouchers SET status = 'Used' WHERE user_name = :user_name");
+            $stmt->execute([':user_name' => $guest_name]);
+        } catch (Exception $e) {
+            // Non-fatal: router removal already succeeded
+        }
     }
 }
 ?>

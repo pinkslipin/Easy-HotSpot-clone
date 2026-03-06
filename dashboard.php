@@ -381,7 +381,8 @@ checkExpiredVouchers();
         <div style="margin-top: 15px;">
             <a href="index.php" class="nav-button primary"><i class="fa fa-home"></i> Main Menu</a>
             <a href="voucher.php" class="nav-button secondary"><i class="fa fa-print"></i> Print Vouchers</a>
-            <button onclick="window.print();" class="nav-button secondary"><i class="fa fa-download"></i> Export Report</button>
+            <a href="export_report.php" class="nav-button secondary"><i class="fa fa-file-excel-o"></i> Export Report</a>
+            <a href="voucher_manager.php" class="nav-button secondary" style="background:#dc3545;border-color:#dc3545;"><i class="fa fa-trash"></i> Manage Vouchers</a>
         </div>
     </div>
     

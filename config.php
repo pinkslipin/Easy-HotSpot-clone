@@ -27,4 +27,10 @@ define('MOCK_MODE', false);
 $host = "192.168.88.1";       // MikroTik hAP ac3 hotspot gateway IP
 $user = "hotspot-api";      // RouterOS API username  
 $pass = "Pinkslippy1@";     // RouterOS API password
+
+// ============ HOTSOFT INTEGRATION (Optional) ============
+// Uncomment and set a secret key if you call hotsoft.php from an external
+// hotel / POS system over the network.  While commented out, hotspot.php
+// is restricted to localhost (127.0.0.1) calls only.
+// define('HOTSOFT_API_KEY', 'change-this-to-a-strong-secret');
 ?>

@@ -28,7 +28,8 @@ if (defined('MOCK_MODE') && MOCK_MODE === true) {
 	require_once 'routeros_api.php';
 	$connection = createRouterConnection($host, $user, $pass);
 	if (!$connection['success']) {
-		die("Router connection failed: " . $connection['error']);
+		echo 0; // Return 0 (error code) - router connection failed
+		exit;
 	}
 	$util = $connection['util'];
 	$client = $connection['client'];

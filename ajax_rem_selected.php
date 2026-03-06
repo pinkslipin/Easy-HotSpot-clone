@@ -9,7 +9,9 @@ $i = 0;
 
 if (true) {	
 
-	$guest_list=$_POST['removal_list'];
+	$guest_list = isset($_POST['removal_list']) && is_array($_POST['removal_list'])
+		? $_POST['removal_list']
+		: [];
 	if (count($guest_list) != 0) {
 		
 		if (defined('MOCK_MODE') && MOCK_MODE === true) {
@@ -55,6 +57,22 @@ if (true) {
 					$util->remove($session->getProperty('.id'));
 				}
 			}
+
+			// Update DB status for all removed users so dashboard stats are accurate
+			require_once 'dbconfig.php';
+			if (!empty($guest_list)) {
+				try {
+					$placeholders = implode(',', array_fill(0, count($guest_list), '?'));
+					$stmt = $DB_con->prepare("UPDATE hotspot_vouchers SET status = 'Used' WHERE user_name IN ($placeholders)");
+					$stmt->execute(array_values($guest_list));
+				} catch (Exception $e) {
+					// Non-fatal: router removal already succeeded
+				}
+			}
+
+			// Audit log for real-router removals
+			require_once 'audit_log.php';
+			auditLog('user_delete', "Bulk removed $i users: " . implode(', ', array_slice($guest_list, 0, 20)));
 		}
 		echo $i;
 	}

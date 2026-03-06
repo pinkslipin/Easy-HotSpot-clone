@@ -66,6 +66,22 @@ $PACKAGES = [
         'type' => 'duration',
         'limit_uptime' => '1h',
     ],
+    'ind_1h_student' => [
+        'id' => 'ind_1h_student',
+        'name' => '1 Hour (Student)',
+        'category' => 'individual',
+        'price' => 39.00,
+        'type' => 'duration',
+        'limit_uptime' => '1h',
+    ],
+    'ind_2h' => [
+        'id' => 'ind_2h',
+        'name' => '2 Hours',
+        'category' => 'individual',
+        'price' => 100.00,
+        'type' => 'duration',
+        'limit_uptime' => '2h',
+    ],
     'ind_3h' => [
         'id' => 'ind_3h',
         'name' => '3 Hours',

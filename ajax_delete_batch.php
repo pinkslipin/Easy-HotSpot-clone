@@ -8,6 +8,7 @@ require_auth();
 csrf_require();
 require_once 'dbconfig.php';
 require_once 'config.php';
+require_once 'audit_log.php';
 
 // Check user permissions - require level 1 or 2
 if ($_SESSION['user_level'] > 2) {
@@ -77,7 +78,7 @@ try {
     $stmt->execute([':batch_id' => $batch_id]);
     
     // Log this action
-    logAuditAction('batch_delete', "Deleted batch: $batch_id ($deleted_count vouchers)");
+    auditLog('batch_delete', "Deleted batch: $batch_id ($deleted_count vouchers)");
     
     echo json_encode([
         'success' => true, 
@@ -87,31 +88,5 @@ try {
 } catch (Exception $e) {
     error_log('Batch delete error: ' . $e->getMessage());
     echo json_encode(['success' => false, 'message' => 'Failed to delete batch']);
-}
-
-/**
- * Log audit action (placeholder - will be implemented in audit_log.php)
- */
-function logAuditAction($action, $details) {
-    global $DB_con;
-    
-    try {
-        // Check if audit_log table exists
-        $stmt = $DB_con->query("SHOW TABLES LIKE 'audit_log'");
-        if ($stmt->rowCount() > 0) {
-            $username = isset($_SESSION['username']) ? $_SESSION['username'] : 'system';
-            $ip = $_SERVER['REMOTE_ADDR'];
-            
-            $stmt = $DB_con->prepare("INSERT INTO audit_log (action, details, username, ip_address, created_at) VALUES (:action, :details, :username, :ip, NOW())");
-            $stmt->execute([
-                ':action' => $action,
-                ':details' => $details,
-                ':username' => $username,
-                ':ip' => $ip
-            ]);
-        }
-    } catch (Exception $e) {
-        // Silently fail if audit logging doesn't work
-    }
 }
 ?>

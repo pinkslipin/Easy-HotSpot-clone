@@ -4,8 +4,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="Easy HotSpot - A Simple Hotspot user management utility by Team Zetozone">
     <meta name="author" content="Siby P Varkey, Team Zetozone">
-    <!-- SECURITY: Prevent clickjacking, MIME sniffing, XSS -->
-    <meta http-equiv="X-Frame-Options" content="DENY">
+    <!-- SECURITY: Prevent MIME sniffing, XSS -->
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta http-equiv="X-XSS-Protection" content="1; mode=block">
     <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">

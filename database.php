@@ -65,6 +65,76 @@ try { $stmt->execute(array()); } catch (Exception $e) { /* Column may already ex
 $stmt = $DB_con->prepare("ALTER TABLE `hotspot_vouchers` ADD COLUMN IF NOT EXISTS `package_type` VARCHAR(20) DEFAULT NULL");
 try { $stmt->execute(array()); } catch (Exception $e) { /* Column may already exist */ }
 
+// ============ MULTI-ROUTER SUPPORT (Phase 1) ============
+// Add assigned_router column to hotspot_vouchers if it doesn't exist
+$stmt = $DB_con->prepare("ALTER TABLE `hotspot_vouchers` ADD COLUMN IF NOT EXISTS `assigned_router` VARCHAR(50) DEFAULT 'converge'");
+try { $stmt->execute(array()); } catch (Exception $e) { /* Column may already exist */ }
+
+// Add assigned_router column to seats table if it doesn't exist
+$stmt = $DB_con->prepare("ALTER TABLE `seats` ADD COLUMN IF NOT EXISTS `assigned_router` VARCHAR(50) DEFAULT 'converge'");
+try { $stmt->execute(array()); } catch (Exception $e) { /* Column may already exist */ }
+
+// Create router_status table (tracks which routers are online/offline)
+$stmt = $DB_con->prepare("CREATE TABLE IF NOT EXISTS `router_status` (
+  `router_id` VARCHAR(50) NOT NULL,
+  `is_online` TINYINT(1) DEFAULT 1,
+  `is_active` TINYINT(1) DEFAULT 0,
+  `last_heartbeat` DATETIME DEFAULT NULL,
+  `last_updated` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `consecutive_failures` INT(3) DEFAULT 0,
+  PRIMARY KEY (`router_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8");
+try { $stmt->execute(array()); } catch (Exception $e) { /* Table may already exist */ }
+
+// Create router_load_balance table (tracks user migrations)
+$stmt = $DB_con->prepare("CREATE TABLE IF NOT EXISTS `router_load_balance` (
+  `id` INT(11) NOT NULL AUTO_INCREMENT,
+  `voucher_id` INT(11) DEFAULT NULL,
+  `user_name` VARCHAR(100) NOT NULL,
+  `from_router` VARCHAR(50) NOT NULL,
+  `to_router` VARCHAR(50) NOT NULL,
+  `migrated_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `reason` VARCHAR(50) DEFAULT NULL,
+  `migrated_by` VARCHAR(50) DEFAULT NULL,
+  `notes` TEXT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_user_name` (`user_name`),
+  KEY `idx_migrated_at` (`migrated_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8");
+try { $stmt->execute(array()); } catch (Exception $e) { /* Table may already exist */ }
+
+// Create pending_operations table (queue for ops on offline routers)
+$stmt = $DB_con->prepare("CREATE TABLE IF NOT EXISTS `pending_operations` (
+  `id` INT(11) NOT NULL AUTO_INCREMENT,
+  `operation_type` VARCHAR(50) NOT NULL,
+  `user_name` VARCHAR(100) NOT NULL,
+  `assigned_router` VARCHAR(50) NOT NULL,
+  `operation_params` JSON DEFAULT NULL,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `completed_at` DATETIME DEFAULT NULL,
+  `retry_count` INT(3) DEFAULT 0,
+  `last_retry` DATETIME DEFAULT NULL,
+  `error_message` TEXT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_assigned_router` (`assigned_router`),
+  KEY `idx_completed_at` (`completed_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8");
+try { $stmt->execute(array()); } catch (Exception $e) { /* Table may already exist */ }
+
+// Create router_health_log table (historical health checks)
+$stmt = $DB_con->prepare("CREATE TABLE IF NOT EXISTS `router_health_log` (
+  `id` INT(11) NOT NULL AUTO_INCREMENT,
+  `router_id` VARCHAR(50) NOT NULL,
+  `is_online` TINYINT(1) DEFAULT 1,
+  `response_time_ms` INT(5) DEFAULT NULL,
+  `checked_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `error_message` TEXT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_router_id` (`router_id`),
+  KEY `idx_checked_at` (`checked_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8");
+try { $stmt->execute(array()); } catch (Exception $e) { /* Table may already exist */ }
+
 echo "<h2 style='color: green;'>✓ Database initialized successfully!</h2>";
 echo "<p><a href='reset_admin.php'>Next: Reset Admin Password</a></p>";
 ?>

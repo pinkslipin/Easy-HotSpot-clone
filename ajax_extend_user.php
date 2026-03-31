@@ -59,7 +59,23 @@ if (defined('MOCK_MODE') && MOCK_MODE === true) {
 }
 
 require_once 'routeros_api.php';
-$connection = createRouterConnection($host, $user, $pass);
+require_once 'routers_config.php';
+
+// PHASE 4: Look up which router the user is assigned to
+require_once 'dbconfig.php';
+try {
+	$stmt = $DB_con->prepare("SELECT assigned_router FROM hotspot_vouchers WHERE user_name = :user_name LIMIT 1");
+	$stmt->execute([':user_name' => $username]);
+	$result = $stmt->fetch(PDO::FETCH_ASSOC);
+	$assigned_router = $result ? $result['assigned_router'] : 'converge';
+} catch (Exception $e) {
+	$assigned_router = 'converge'; // Default fallback
+}
+
+// Connect to the assigned router
+$router_config = getRouterConfig($assigned_router);
+$connection = createRouterConnection($router_config['ip'], $router_config['user'], $router_config['pass'], $router_config['port']);
+
 if (!$connection['success']) {
     echo json_encode(['success' => false, 'message' => 'Router connection failed.']);
     exit;
@@ -72,7 +88,7 @@ $util->setMenu('/ip/hotspot/user');
 $users = $util->find('name', $username);
 
 if (empty($users)) {
-    echo json_encode(['success' => false, 'message' => "User '$username' not found on router."]);
+    echo json_encode(['success' => false, 'message' => "User '$username' not found on assigned router ($assigned_router)."]);
     exit;
 }
 
@@ -95,7 +111,7 @@ $client->query($query);
 
 // ── Step 4: Log the action ────────────────────────────────────────────────
 require_once 'audit_log.php';
-auditLog('extend_user', "Extended user '$username' by {$extend_mins} min. New limit-uptime: $newLimit");
+auditLog('extend_user', "Extended user '$username' by {$extend_mins} min on $assigned_router. New limit-uptime: $newLimit");
 
 echo json_encode([
     'success'   => true,

@@ -18,7 +18,12 @@ require_once 'security_helper.php';
 require_auth();
 csrf_require();
 
+// Load multi-router support
+require_once 'load_balancer.php';
+
 // Initialize router connection (mock or real)
+$load_balancer = null; // Will be initialized for load balancing
+
 if (defined('MOCK_MODE') && MOCK_MODE === true) {
 	require_once 'mock_router.php';
 	$util = new MockRouterUtil();
@@ -26,13 +31,12 @@ if (defined('MOCK_MODE') && MOCK_MODE === true) {
 } else {
 	// Use modern RouterOS API library (works with RouterOS 6.43+ and 7.x)
 	require_once 'routeros_api.php';
-	$connection = createRouterConnection($host, $user, $pass);
-	if (!$connection['success']) {
-		echo 0; // Return 0 (error code) - router connection failed
-		exit;
-	}
-	$util = $connection['util'];
-	$client = $connection['client'];
+	
+	// Phase 3: Load-Balanced User Assignment
+	$load_balancer = new LoadBalancer($DB_con);
+	
+	// For batch creation, we'll assign each user randomly
+	// We'll initialize connection on-demand per user to support different routers
 }
 
 if (isset($_POST['no_of_users'])) $no_of_users = $_POST['no_of_users'];
@@ -134,13 +138,7 @@ if($_SESSION['user_level'] >= 1 and $_SESSION['user_level'] <= 3) {
 	// Store limit_uptime from package (empty for window packages)
 	$db_limit_uptime = ($package['type'] === 'duration') ? $package['limit_uptime'] : '';
 
-	$stmt = $DB_con->prepare("INSERT INTO hotspot_vouchers (created_on, created_by, creator, user_name, password, printed_times,
-		printed_last, status, group_of, booking_id, limit_uptime, limit_bytes, profile, uid, batch_id, price, expires_on,
-		package_id, package_name, package_type)
-		VALUES(NOW(), :created_by, :creator, :user_name, :password, :printed_times, :printed_last, :status, :group_of, 
-		:booking_id, :limit_uptime, :limit_bytes, :profile, :uid, :batch_id, :price, :expires_on,
-		:package_id, :package_name, :package_type)");
-		
+	// Phase 3: For batch creation, we need a per-user approach with load balancing
 	$k = 1;
 	for($i=0; $i < $no_of_users; $i++){
 		$pass = '';
@@ -159,6 +157,21 @@ if($_SESSION['user_level'] >= 1 and $_SESSION['user_level'] <= 3) {
 		
 		//username & password same or different
 		if ($same_pass == 2) {	$pass_word = $pass; } else { $pass_word = $user_name; }
+		
+		// PHASE 3: Load-Balanced User Assignment
+		// Each user is randomly assigned to a router
+		$assigned_router = 'converge'; // Default for mock mode
+		if (defined('MOCK_MODE') && MOCK_MODE !== true) {
+			$assigned_router = $load_balancer->getRandomRouter();
+			$router_config = getRouterConfig($assigned_router);
+			$connection = createRouterConnection($router_config['ip'], $router_config['user'], $router_config['pass'], $router_config['port']);
+			if (!$connection['success']) {
+				error_log("Failed to connect to router $assigned_router for batch user creation");
+				continue; // Skip this user and move to next
+			}
+			$util = $connection['util'];
+			$client = $connection['client'];
+		}
 		
 		$util->setMenu('/ip hotspot user');
 		$existingUsers = $util->getAll();
@@ -196,6 +209,15 @@ if($_SESSION['user_level'] >= 1 and $_SESSION['user_level'] <= 3) {
 		$updatedUsers = $util->getAll();
 		if ($iv != count($updatedUsers)) {
 			$voucher_uid = $booking_id.'-'.$k.'-'.$no_of_users.date('dmY');
+			
+			// Insert with assigned_router
+			$stmt = $DB_con->prepare("INSERT INTO hotspot_vouchers (created_on, created_by, creator, user_name, password, printed_times,
+				printed_last, status, group_of, booking_id, limit_uptime, limit_bytes, profile, uid, batch_id, price, expires_on,
+				package_id, package_name, package_type, assigned_router)
+				VALUES(NOW(), :created_by, :creator, :user_name, :password, :printed_times, :printed_last, :status, :group_of, 
+				:booking_id, :limit_uptime, :limit_bytes, :profile, :uid, :batch_id, :price, :expires_on,
+				:package_id, :package_name, :package_type, :assigned_router)");
+			
 			$stmt->execute(array(
 				':created_by' => $_SESSION['username'], 
 				':creator' => $_SESSION['id'], 
@@ -215,7 +237,8 @@ if($_SESSION['user_level'] >= 1 and $_SESSION['user_level'] <= 3) {
 				':expires_on' => $expires_on,
 				':package_id' => $package_id,
 				':package_name' => $package_name,
-				':package_type' => $package_type
+				':package_type' => $package_type,
+				':assigned_router' => $assigned_router
 			));			
 			$k++;	
 		} 	
@@ -225,7 +248,7 @@ if($_SESSION['user_level'] >= 1 and $_SESSION['user_level'] <= 3) {
 	$created = $k - 1;
 	if ($created > 0) {
 		require_once 'audit_log.php';
-		auditLog('voucher_create', "Created batch $batch_id with $created vouchers ($package_name)");
+		auditLog('voucher_create', "Created batch $batch_id with $created vouchers ($package_name) with load balancing");
 	}
 	
 	echo $created; //Successful

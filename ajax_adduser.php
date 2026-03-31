@@ -14,15 +14,30 @@ require_once 'security_helper.php';
 require_auth();
 csrf_require();
 
+// Load multi-router support
+require_once 'load_balancer.php';
+
 // Initialize router connection (mock or real)
+$assigned_router = null; // Track which router we're using
+
 if (defined('MOCK_MODE') && MOCK_MODE === true) {
 	require_once 'mock_router.php';
 	$util = new MockRouterUtil();
 	$client = new MockClient();
+	$assigned_router = 'converge'; // Default for mock mode
 } else {
 	// Use modern RouterOS API library (works with RouterOS 6.43+ and 7.x)
 	require_once 'routeros_api.php';
-	$connection = createRouterConnection($host, $user, $pass);
+	
+	// Phase 3: Load-Balanced User Assignment
+	// Randomly assign user to one of the routers
+	$load_balancer = new LoadBalancer($DB_con);
+	$assigned_router = $load_balancer->getRandomRouter();
+	
+	// Get configuration for assigned router
+	$router_config = getRouterConfig($assigned_router);
+	$connection = createRouterConnection($router_config['ip'], $router_config['user'], $router_config['pass'], $router_config['port']);
+	
 	if (!$connection['success']) {
 		echo '<script>cmodalOkCancel("ERROR", "Router connection failed: '.addslashes($connection['error']).'", "error");</script>';
 		exit;
@@ -133,10 +148,10 @@ if ((!empty($username)) and (!empty($password)) and (!empty($profile))) {
 		
 		$stmt = $DB_con->prepare("INSERT INTO hotspot_vouchers (created_on, created_by, creator, user_name, password, printed_times,
 			printed_last, status, group_of, booking_id, limit_uptime, limit_bytes, profile, uid, batch_id, price, expires_on,
-			package_id, package_name, package_type)
+			package_id, package_name, package_type, assigned_router)
 			VALUES(NOW(), :created_by, :creator, :user_name, :password, :printed_times, :printed_last, :status, :group_of, 
 			:booking_id, :limit_uptime, :limit_bytes, :profile, :uid, :batch_id, :price, :expires_on,
-			:package_id, :package_name, :package_type)");
+			:package_id, :package_name, :package_type, :assigned_router)");
 		$stmt->execute(array(
 			':created_by' => $_SESSION['username'], 
 			':creator' => $_SESSION['id'], 
@@ -156,12 +171,13 @@ if ((!empty($username)) and (!empty($password)) and (!empty($profile))) {
 			':expires_on' => $expires_on,
 			':package_id' => $package_id,
 			':package_name' => $package_name,
-			':package_type' => $package_type
+			':package_type' => $package_type,
+			':assigned_router' => $assigned_router
 		));	
 		
 		// Log the voucher creation
 		require_once 'audit_log.php';
-		auditLog('voucher_create', "Created single voucher for $package_name ($package_id)");
+		auditLog('voucher_create', "Created single voucher for $package_name ($package_id) assigned to $assigned_router");
 			
 		// here starts Echo String
 		$echo_text ='			

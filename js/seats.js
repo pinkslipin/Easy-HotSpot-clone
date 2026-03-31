@@ -41,6 +41,7 @@
     // Internal state
     var refreshTimer  = null;
     var pendingSeatId = null;   // seat being acted on (for spinner)
+    var seenSystemNotifs = {};  // de-dup server events across refresh ticks
 
     // ── Bootstrap: launch ─────────────────────────────────────────────────────
     $(document).ready(function () {
@@ -71,6 +72,7 @@
                     return;
                 }
                 renderSeatMap(data.seats, data.summary, data.ts);
+                showSystemNotifications(data.notifications || []);
                 window.scrollTo(0, scrollY);
             },
             error    : function () {
@@ -751,6 +753,18 @@
     function startAutoRefresh() {
         if (refreshTimer) clearInterval(refreshTimer);
         refreshTimer = setInterval(loadSeats, REFRESH_INTERVAL);
+    }
+
+    function showSystemNotifications(notifications) {
+        if (!notifications || !notifications.length) return;
+
+        notifications.forEach(function (n) {
+            var key = [n.event || '', n.username || '', n.seat_id || ''].join('|');
+            if (!key || seenSystemNotifs[key]) return;
+
+            seenSystemNotifs[key] = true;
+            showToast('success', n.message || 'Voucher expiry auto-logout verified.');
+        });
     }
 
     // Reset the countdown display every second

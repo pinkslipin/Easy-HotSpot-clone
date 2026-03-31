@@ -241,11 +241,11 @@ require_once 'pricing_config.php';
                     <a href="seats.php" class="action-btn btn-blue">
                         <i class="fa fa-th-large"></i> Seat Map
                     </a>
-                    <a href="portal.php" class="action-btn btn-teal">
-                        <i class="fa fa-paint-brush"></i> Captive Portal
+                    <a href="router_management.php" class="action-btn btn-teal">
+                        <i class="fa fa-server"></i> Router Management
                     </a>
-                    <a href="#remove-uninitiated" data-toggle="modal" class="action-btn btn-orange">
-                        <i class="fa fa-clock-o"></i> Unused Vouchers
+                    <a href="portal.php" class="action-btn btn-orange">
+                        <i class="fa fa-paint-brush"></i> Captive Portal
                     </a>
                 </div>
             </div>
@@ -1258,18 +1258,20 @@ function loadActiveUsers() {
                 ' <small style="font-size:12px;color:#666;">(' + users.length + ' online &bull; refreshes every 30s)</small></h3></strong></div>' +
                 '<table cellpadding="0" cellspacing="0" border="0" class="table table-bordered">' +
                 '<thead><tr>' +
-                '<th>#</th><th>Server</th><th>Domain</th><th>User</th>' +
+                '<th>#</th><th>Router</th><th>Server</th><th>Domain</th><th>User</th>' +
                 '<th>IP Address</th><th>Session Uptime</th><th>Voucher Time Left</th><th>Actions</th>' +
                 '</tr></thead><tbody>';
 
             if (users.length === 0) {
-                html += '<tr><td colspan="8" class="text-center">No active users at the moment.</td></tr>';
+                html += '<tr><td colspan="9" class="text-center">No active users at the moment.</td></tr>';
             } else {
                 for (var i = 0; i < users.length; i++) {
                     var u = users[i];
                     var vStyle = u.expired ? 'color:red' : (u.voucherLeft === 'Unlimited' ? 'color:gray' : '');
+                    var routerBadgeClass = u.router === 'Converge' ? 'label-primary' : 'label-success';
                     html += '<tr>' +
                         '<td>' + (i+1) + '</td>' +
+                        '<td><span class="label ' + routerBadgeClass + '">' + escHtml(u.router) + '</span></td>' +
                         '<td>' + escHtml(u.server)  + '</td>' +
                         '<td>' + escHtml(u.domain)  + '</td>' +
                         '<td>' + escHtml(u.user)    + '</td>' +

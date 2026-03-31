@@ -19,6 +19,8 @@ require_once 'seat_expiry.php';
 
 // Always run expiry cleanup so stale reservations never show as reserved
 expireSeats($DB_con);
+$expiryEvents = [];
+expireConsumedOccupiedSeats($DB_con, $expiryEvents);
 
 try {
     // Pull seat data with latest voucher info for occupied/reserved seats.
@@ -103,6 +105,7 @@ try {
             'reserved'  => $reserved,
             'occupied'  => $occupied,
         ],
+        'notifications' => $expiryEvents,
         'ts' => date('H:i:s'),
     ]);
 

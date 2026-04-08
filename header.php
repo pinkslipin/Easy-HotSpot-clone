@@ -705,10 +705,19 @@ function removeSelected(oForm) {
 	var Removal1 = oForm.elements['removal_list[]'];
 	var Removal_list = new Array();
 
-	for (var i = 0; i < Removal1.length; i++) {
-		if (Removal1[i].checked) {
-			Removal_list.push(Removal1[i].value);
+	// Handle both single element and HTMLCollection cases
+	var checkboxes = Removal1.length !== undefined ? Removal1 : [Removal1];
+
+	for (var i = 0; i < checkboxes.length; i++) {
+		if (checkboxes[i].checked) {
+			Removal_list.push(checkboxes[i].value);
 		}
+	}
+
+	// Validate selection
+	if (Removal_list.length === 0) {
+		cmodal("No Selection", "Please select at least one user to remove", "warning");
+		return;
 	}
 
 	var xhr = new XMLHttpRequest();
@@ -720,14 +729,21 @@ function removeSelected(oForm) {
 	xhr.open('POST', 'ajax_rem_selected.php', true);
 	xhr.onreadystatechange = function() {
 		if (xhr.readyState === 4) {
-			var ajaxResult = xhr.responseText;
+			var ajaxResult = xhr.responseText.trim();
 			if (ajaxResult == 0) {
 				cmodal("User Rights Issue",  "User Rights Problem, Not Authorised....  Contact Admin for details", "error"); }
 			else if (ajaxResult == -1) {
 				cmodal("No Proper Selections",   "No Guest user accounts selected for removal", "warning"); }
+			else if (isNaN(ajaxResult)) {
+				cmodal("Error", "Server error: " + ajaxResult, "error"); }
 			else {
-				cmodal("Removal Completed..",  ajaxResult + " Guest user accounts removed successfully", "success"); }
+				cmodal("Removal Completed!",  ajaxResult + " Guest user account(s) removed successfully", "success");
+				setTimeout(function() { location.reload(); }, 1500);
+			}
 		}
+	};
+	xhr.onerror = function() {
+		cmodal("Network Error", "Failed to connect to server. Please check your connection.", "error");
 	};
 	xhr.send(formData);
 }

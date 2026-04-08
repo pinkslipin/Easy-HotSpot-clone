@@ -35,14 +35,14 @@ add chain=prerouting in-interface=ether2 connection-mark=no-mark action=mark-con
 # 3c. PCC Load Balancing Rules (Split connections 50/50 based on both source and destination IPs for better balancing without breaking secure sites)
 add chain=prerouting in-interface=bridge connection-mark=no-mark dst-address-type=!local per-connection-classifier=both-addresses:2/0 action=mark-connection new-connection-mark=WAN1_conn passthrough=yes
 add chain=prerouting in-interface=bridge connection-mark=no-mark dst-address-type=!local per-connection-classifier=both-addresses:2/1 action=mark-connection new-connection-mark=WAN2_conn passthrough=yes
-add chain=prerouting in-interface=bridge-hotspot connection-mark=no-mark dst-address-type=!local per-connection-classifier=both-addresses:2/0 action=mark-connection new-connection-mark=WAN1_conn passthrough=yes
-add chain=prerouting in-interface=bridge-hotspot connection-mark=no-mark dst-address-type=!local per-connection-classifier=both-addresses:2/1 action=mark-connection new-connection-mark=WAN2_conn passthrough=yes
+add chain=prerouting in-interface=bridge-hotspot hotspot=auth connection-mark=no-mark dst-address-type=!local per-connection-classifier=both-addresses:2/0 action=mark-connection new-connection-mark=WAN1_conn passthrough=yes
+add chain=prerouting in-interface=bridge-hotspot hotspot=auth connection-mark=no-mark dst-address-type=!local per-connection-classifier=both-addresses:2/1 action=mark-connection new-connection-mark=WAN2_conn passthrough=yes
 
 # 3d. Mark the routed packets to obey the connection marks above
 add chain=prerouting connection-mark=WAN1_conn in-interface=bridge action=mark-routing new-routing-mark=to_WAN1 passthrough=yes
 add chain=prerouting connection-mark=WAN2_conn in-interface=bridge action=mark-routing new-routing-mark=to_WAN2 passthrough=yes
-add chain=prerouting connection-mark=WAN1_conn in-interface=bridge-hotspot action=mark-routing new-routing-mark=to_WAN1 passthrough=yes
-add chain=prerouting connection-mark=WAN2_conn in-interface=bridge-hotspot action=mark-routing new-routing-mark=to_WAN2 passthrough=yes
+add chain=prerouting connection-mark=WAN1_conn in-interface=bridge-hotspot hotspot=auth action=mark-routing new-routing-mark=to_WAN1 passthrough=yes
+add chain=prerouting connection-mark=WAN2_conn in-interface=bridge-hotspot hotspot=auth action=mark-routing new-routing-mark=to_WAN2 passthrough=yes
 add chain=output connection-mark=WAN1_conn action=mark-routing new-routing-mark=to_WAN1 passthrough=yes
 add chain=output connection-mark=WAN2_conn action=mark-routing new-routing-mark=to_WAN2 passthrough=yes
 

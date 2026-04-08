@@ -16,6 +16,10 @@ class ComposerStaticInit8f2d3997825274428f24011017f27363
         array (
             'RouterOS\\' => 9,
         ),
+        'P' =>
+        array (
+            'PHPMailer\\PHPMailer\\' => 20,
+        ),
     );
 
     public static $prefixDirsPsr4 = array (
@@ -30,6 +34,10 @@ class ComposerStaticInit8f2d3997825274428f24011017f27363
         'RouterOS\\' =>
         array (
             0 => __DIR__ . '/..' . '/evilfreelancer/routeros-api-php/src',
+        ),
+        'PHPMailer\\PHPMailer\\' =>
+        array (
+            0 => __DIR__ . '/..' . '/phpmailer/phpmailer/src',
         ),
     );
 

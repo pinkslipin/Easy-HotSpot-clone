@@ -9,4 +9,5 @@ return array(
     'Symfony\\Component\\Process\\' => array($vendorDir . '/symfony/process'),
     'Spatie\\Ssh\\' => array($vendorDir . '/spatie/ssh/src'),
     'RouterOS\\' => array($vendorDir . '/evilfreelancer/routeros-api-php/src'),
+    'PHPMailer\\PHPMailer\\' => array($vendorDir . '/phpmailer/phpmailer/src'),
 );

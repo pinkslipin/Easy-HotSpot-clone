@@ -94,6 +94,7 @@ require_once 'pricing_config.php';
 .btn-green { background: linear-gradient(135deg, #72bf48, #5da03a); }
 .btn-red { background: linear-gradient(135deg, #FF432E, #d63520); }
 .btn-purple { background: linear-gradient(135deg, #800080, #660066); }
+.btn-pink { background: linear-gradient(135deg, #e91e63, #c2185b); }
 .btn-orange { background: linear-gradient(135deg, #FF6B35, #e55a2b); }
 .btn-gold { background: linear-gradient(135deg, #FFD700, #e6c200); color: #333 !important; }
 .btn-navy { background: linear-gradient(135deg, #000080, #000066); }
@@ -240,6 +241,12 @@ require_once 'pricing_config.php';
                     </a>
                     <a href="seats.php" class="action-btn btn-blue">
                         <i class="fa fa-th-large"></i> Seat Map
+                    </a>
+                    <a href="huddle_room_booking.php" class="action-btn btn-purple">
+                        <i class="fa fa-calendar"></i> Book Huddle Room
+                    </a>
+                    <a href="huddle_room_manage.php" class="action-btn btn-pink">
+                        <i class="fa fa-tasks"></i> Manage Bookings
                     </a>
                     <a href="router_management.php" class="action-btn btn-teal">
                         <i class="fa fa-server"></i> Router Management
@@ -704,7 +711,7 @@ require_once 'pricing_config.php';
 								</div>
 								<div class="col-sm-2"> -->
 								<div class="col-sm-2 col-sm-offset-4">
-									<button name="removal" id="removal" data-dismiss="modal" onClick="removeSelected(this.form);" class="btn btn-success"><i class="icon-save icon-large"></i></a>&nbsp;Remove Selected</button>&nbsp;&nbsp;&nbsp;
+									<button type="button" name="removal" id="removal" onClick="removeSelected(this.form);" class="btn btn-success"><i class="icon-save icon-large"></i></a>&nbsp;Remove Selected</button>&nbsp;&nbsp;&nbsp;
 								</div>	
 								<div class="col-sm-2">
 									<button data-dismiss="modal" class="btn btn-info center-element" ><i class="icon-save icon-large"></i>&nbsp;BACK</button>

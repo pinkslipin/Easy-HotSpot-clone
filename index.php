@@ -47,15 +47,47 @@ if (defined('MOCK_MODE') && MOCK_MODE === true) {
 			$client = $connection['client'];
 			include_once('home.php');
 		} else {
+			// Router connection failed - log and show settings page for admin to fix
 			error_log('Router connection error: ' . $connection['error']);
-			echo 'Error Accessing Data. Check router settings.';
-			include_once('settings.php');
+			if ($_SESSION['user_level'] == 1) {
+				// Show settings page for admin to debug
+				echo '<div class="alert alert-danger" style="margin:20px;">';
+				echo '<strong>Router Connection Failed</strong><br>';
+				echo 'Error: ' . htmlspecialchars($connection['error']) . '<br>';
+				echo '<a href="settings.php" class="btn btn-primary">Check Router Settings</a>';
+				echo '</div>';
+				include_once('settings.php');
+			} else {
+				// Show generic error for non-admin users
+				echo '<div class="alert alert-danger" style="margin:20px;">';
+				echo '<strong>System Error</strong><br>';
+				echo 'The system is currently unable to access the router. Please try again in a moment.';
+				echo '</div>';
+				// Still show home page shell so they can navigate
+				include_once('home.php');
+			}
 		}
 	}
 	catch (Exception $e) {
+		// Router exception - log and show error
 		error_log('Router error: ' . $e->getMessage());
-		echo 'Error Accessing Data. Check router settings.';
-		include_once('settings.php');
+		if ($_SESSION['user_level'] == 1) {
+			// Show settings page for admin to debug
+			echo '<div class="alert alert-danger" style="margin:20px;">';
+			echo '<strong>Router Connection Exception</strong><br>';
+			echo 'Error: ' . htmlspecialchars($e->getMessage()) . '<br>';
+			echo '<a href="settings.php" class="btn btn-primary">Check Router Settings</a>';
+			echo '</div>';
+			include_once('settings.php');
+		} else {
+			// Show generic error for non-admin users
+			echo '<div class="alert alert-danger" style="margin:20px;">';
+			echo '<strong>System Error</strong><br>';
+			echo 'An error occurred while connecting to the router. Please try again.';
+			echo '</div>';
+			// Still show home page shell so they can navigate
+			include_once('home.php');
+		}
 	}
 }
 ?>

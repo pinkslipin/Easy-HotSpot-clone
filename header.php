@@ -449,9 +449,10 @@ function changePass(oForm) {
 
    }
   
-		// SECURITY: Send password via POST body (not GET URL)
+		// SECURITY: Send password via POST body (not GET URL) and include CSRF token
 		var formData = new FormData();
 		formData.append('np', np);
+		formData.append('csrf_token', CSRF_TOKEN);
 		ajaxRequest.open("POST", "ajax_change_syspass.php", true);
 		ajaxRequest.send(formData);
 	}

@@ -17,12 +17,16 @@ csrf_require();
 require_once 'dbconfig.php';
 require_once 'seat_expiry.php';
 
-// Always run expiry cleanup so stale reservations never show as reserved
-expireSeats($DB_con);
-$expiryEvents = [];
-expireConsumedOccupiedSeats($DB_con, $expiryEvents);
-
 try {
+    // Clean up expired reservation seats (database-only, no router calls to avoid timeout issues)
+    expireSeats($DB_con);
+    $expiryEvents = [];
+    
+    // NOTE: Skipping expireConsumedOccupiedSeats() to prevent repeated router connections
+    // that were causing login/logout spam in the router logs.
+    // Router connection was timing out on every 30-second refresh.
+    // TODO: Re-enable after implementing connection pooling or async checking.
+    
     // Pull seat data with latest voucher info for occupied/reserved seats.
     // We join on the most-recent Active (or any) voucher for the stored
     // voucher_username so we can show package + price on the card.

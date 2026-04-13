@@ -1225,19 +1225,46 @@ function submitExtend() {
         type: 'POST',
         data: { csrf_token: CSRF_TOKEN, username: username, extend_minutes: mins },
         dataType: 'json',
+        timeout: 15000,  // 15 second timeout
         success: function(res) {
             $('#extend-user-modal').modal('hide');
             if (res.success) {
-                cmodal('Time Extended', res.message, 'success');
+                var msg = res.message;
+                if (res.pending) {
+                    msg += '\n\n(Note: Router is currently busy. The extension will sync automatically when the router recovers.)';
+                }
+                cmodal('Time Extended', msg, 'success');
                 // Refresh the active users table to show updated time
                 loadActiveUsers();
             } else {
                 cmodal('Error', res.message, 'error');
+                console.error('Extend failed:', res.message);
             }
         },
-        error: function() {
+        error: function(xhr, status, error) {
             $('#extend-user-modal').modal('hide');
-            cmodal('Error', 'Failed to contact router. Please try again.', 'error');
+            var msg = 'Failed to extend time. ';
+            
+            // Log detailed error for debugging
+            console.error('AJAX Error:', {
+                status:       status,
+                error:        error,
+                statusCode:   xhr.status,
+                responseText: xhr.responseText,
+                contentType:  xhr.getResponseHeader('content-type')
+            });
+            
+            if (status === 'timeout') {
+                msg += 'Request timed out - router may be busy.';
+            } else if (xhr.status === 403) {
+                msg += 'You do not have permission to extend time (admin/unit head only).';
+            } else if (xhr.status === 401) {
+                msg += 'Your session has expired. Please refresh the page.';
+            } else {
+                msg += 'Please try again.';
+            }
+            
+            cmodal('Error', msg, 'error');
         }
     });
 }
@@ -1251,6 +1278,7 @@ function loadActiveUsers() {
         type: 'POST',
         data: { csrf_token: CSRF_TOKEN },
         dataType: 'json',
+        timeout: 15000,  // 15 second timeout
         success: function(res) {
             if (!res.success) {
                 $('#active-users-content').html(
@@ -1259,7 +1287,13 @@ function loadActiveUsers() {
                 return;
             }
             var users = res.users;
-            var html = '<div class="alert alert-info">' +
+            var unavailableMsg = '';
+            if (res.unavailable_routers && res.unavailable_routers.length > 0) {
+                unavailableMsg = '<div class="alert alert-warning"><strong>Note:</strong> Some routers are currently unavailable: ' + 
+                    res.unavailable_routers.join(', ') + '</div>';
+            }
+            var html = unavailableMsg +
+                '<div class="alert alert-info">' +
                 '<strong><i class="icon-user icon-large"></i>' +
                 '<h3 class="text-center">List of Users Active at the moment' +
                 ' <small style="font-size:12px;color:#666;">(' + users.length + ' online &bull; refreshes every 30s)</small></h3></strong></div>' +
@@ -1296,9 +1330,15 @@ function loadActiveUsers() {
             html += '</tbody></table>';
             $('#active-users-content').html(html);
         },
-        error: function() {
+        error: function(xhr, status, error) {
+            var msg = 'Could not load active users. ';
+            if (status === 'timeout') {
+                msg += 'Request timed out. Router may be busy or unreachable.';
+            } else {
+                msg += 'Check your connection and try again.';
+            }
             $('#active-users-content').html(
-                '<div class="alert alert-danger">Could not reach the server. Check your connection.</div>'
+                '<div class="alert alert-danger">' + msg + '</div>'
             );
         }
     });

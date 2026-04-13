@@ -49,9 +49,15 @@ try {
     $lb = new LoadBalancer();
     $rm = new RouterManager();
     $allRows = [];
+    $connectionErrors = [];
     
     // Get all configured routers
     $routers = $rm->getAllRouters();
+    
+    if (empty($routers)) {
+        echo json_encode(['success' => true, 'users' => [], 'warning' => 'No routers configured']);
+        exit;
+    }
 
     // Query each router for active sessions
     foreach ($routers as $routerId => $routerConfig) {
@@ -65,46 +71,59 @@ try {
             );
 
             if (!$connection['success']) {
-                error_log("Failed to connect to router: $routerId");
-                continue;
+                error_log("Failed to connect to router: $routerId - " . $connection['error']);
+                $connectionErrors[] = $routerId;
+                continue;  // Skip this router, try the next one
             }
 
             $util = $connection['util'];
 
             // 1. Build lookup: username -> [limit-uptime, accumulated-uptime] from /ip hotspot user
-            $util->setMenu('/ip/hotspot/user');
-            $userLimits = [];
-            foreach ($util->getAll() as $u) {
-                $uname = $u->getProperty('name');
-                $userLimits[$uname] = [
-                    'limit' => $u->getProperty('limit-uptime'),
-                    'accu'  => $u->getProperty('uptime'),
-                ];
+            try {
+                $util->setMenu('/ip/hotspot/user');
+                $userLimits = [];
+                foreach ($util->getAll() as $u) {
+                    $uname = $u->getProperty('name');
+                    $userLimits[$uname] = [
+                        'limit' => $u->getProperty('limit-uptime'),
+                        'accu'  => $u->getProperty('uptime'),
+                    ];
+                }
+            } catch (Exception $e) {
+                error_log("Failed to fetch user limits from $routerId: " . $e->getMessage());
+                $connectionErrors[] = $routerId;
+                continue;
             }
 
             // 2. Fetch active sessions
-            $util->setMenu('/ip/hotspot/active');
-            $rawSessions  = [];
-            $maxSessionSecs = [];   // username => max session uptime in seconds
+            try {
+                $util->setMenu('/ip/hotspot/active');
+                $rawSessions  = [];
+                $maxSessionSecs = [];   // username => max session uptime in seconds
 
-            // Pass 1 – collect raw data and find max session uptime per username
-            foreach ($util->getAll() as $item) {
-                $activeUser  = $item->getProperty('user');
-                $sessionUp   = $item->getProperty('uptime');
-                $sessionSecs = parseRosTime2($sessionUp);
+                // Pass 1 – collect raw data and find max session uptime per username
+                foreach ($util->getAll() as $item) {
+                    $activeUser  = $item->getProperty('user');
+                    $sessionUp   = $item->getProperty('uptime');
+                    $sessionSecs = parseRosTime2($sessionUp);
 
-                $rawSessions[] = [
-                    'server'     => $item->getProperty('server'),
-                    'domain'     => $item->getProperty('domain'),
-                    'user'       => $activeUser,
-                    'address'    => $item->getProperty('address'),
-                    'sessionUp'  => $sessionUp,
-                    'sessionSecs'=> $sessionSecs,
-                ];
+                    $rawSessions[] = [
+                        'server'     => $item->getProperty('server'),
+                        'domain'     => $item->getProperty('domain'),
+                        'user'       => $activeUser,
+                        'address'    => $item->getProperty('address'),
+                        'sessionUp'  => $sessionUp,
+                        'sessionSecs'=> $sessionSecs,
+                    ];
 
-                if (!isset($maxSessionSecs[$activeUser]) || $sessionSecs > $maxSessionSecs[$activeUser]) {
-                    $maxSessionSecs[$activeUser] = $sessionSecs;
+                    if (!isset($maxSessionSecs[$activeUser]) || $sessionSecs > $maxSessionSecs[$activeUser]) {
+                        $maxSessionSecs[$activeUser] = $sessionSecs;
+                    }
                 }
+            } catch (Exception $e) {
+                error_log("Failed to fetch active sessions from $routerId: " . $e->getMessage());
+                $connectionErrors[] = $routerId;
+                continue;
             }
 
             // Pass 2 – calculate remaining time and include router name
@@ -138,7 +157,8 @@ try {
             }
         } catch (Exception $e) {
             error_log("Error querying router $routerId: " . $e->getMessage());
-            continue;
+            $connectionErrors[] = $routerId;
+            continue;  // Skip this router but continue with others
         }
     }
 
@@ -147,7 +167,13 @@ try {
         return strcmp($a['user'], $b['user']);
     });
 
-    echo json_encode(['success' => true, 'users' => $allRows]);
+    // Return success even if some routers are down (graceful degradation)
+    // Show active users from routers that ARE accessible
+    echo json_encode([
+        'success' => true,
+        'users' => $allRows,
+        'unavailable_routers' => $connectionErrors
+    ]);
 
 } catch (Exception $e) {
     error_log('ajax_active_users error: ' . $e->getMessage());

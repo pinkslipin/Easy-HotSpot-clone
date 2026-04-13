@@ -259,9 +259,34 @@ $upcoming_bookings = $todayStmt->fetchAll(PDO::FETCH_ASSOC);
 
 <script src="js/jquery-2.1.1.min.js"></script>
 <script>
+// Pricing structure
+const PRICING = {
+    5: 260,    // 5 pax: ₱260/hr
+    8: 450     // 8 pax and above: ₱450/hr
+};
+const EXTRA_PAX_RATE = 58;  // ₱58 per additional person
+
 let currentBookingId = null;
 let originalOccupancy = null;
 let originalPrice = null;
+
+function getPriceForOccupancy(occupancy) {
+    // Determine the base hourly rate based on occupancy
+    if (occupancy <= 5) return PRICING[5];
+    return PRICING[8];  // 8 pax or more gets the base 8-pax rate
+}
+
+function getUpdatedHourlyRate(bookingOccupancy, finalOccupancy) {
+    // Get the base hourly rate for the booked occupancy
+    const baseHourlyRate = getPriceForOccupancy(bookingOccupancy);
+    
+    // If more people show up, add surcharge per extra person
+    const extraPax = Math.max(0, finalOccupancy - bookingOccupancy);
+    const extraCharge = extraPax * EXTRA_PAX_RATE;
+    
+    // Return the new hourly rate
+    return baseHourlyRate + extraCharge;
+}
 
 function openCheckinModal(bookingId, occupancy, price) {
     currentBookingId = bookingId;
@@ -270,7 +295,8 @@ function openCheckinModal(bookingId, occupancy, price) {
     
     $('#modal-booking-id').val(bookingId);
     $('#final-occupancy').val(occupancy);
-    $('#new-price').text(price.toFixed(2));
+    $('#final-occupancy').attr('min', occupancy);  // Can't reduce below original
+    updatePriceDisplay();
     $('#issue-voucher-check').prop('checked', false);
     $('#voucher-form-section').hide();
     
@@ -282,10 +308,21 @@ function openCheckinModal(bookingId, occupancy, price) {
     $('#checkin-modal').addClass('active');
 }
 
+function updatePriceDisplay() {
+    const finalOccupancy = parseInt($('#final-occupancy').val()) || originalOccupancy;
+    const updatedHourlyRate = getUpdatedHourlyRate(originalOccupancy, finalOccupancy);
+    $('#new-price').text( updatedHourlyRate.toFixed(2) + '/hr');
+}
+
 function closeCheckinModal() {
     $('#checkin-modal').removeClass('active');
     currentBookingId = null;
 }
+
+// Update price when occupancy changes
+$('#final-occupancy').on('input', function() {
+    updatePriceDisplay();
+});
 
 // Toggle voucher form visibility
 $('#issue-voucher-check').on('change', function() {
@@ -294,10 +331,6 @@ $('#issue-voucher-check').on('change', function() {
     } else {
         $('#voucher-form-section').hide();
     }
-});
-
-$('#final-occupancy').on('input', function() {
-    $('#new-price').text(originalPrice.toFixed(2));
 });
 
 $('#checkin-form').on('submit', function(e) {

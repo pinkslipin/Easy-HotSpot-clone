@@ -1,9 +1,14 @@
 <?php
+// CRITICAL: Set error handling FIRST before anything else
+error_reporting(E_ALL);
+ini_set('display_errors', 0);  // Don't display to user
+ini_set('log_errors', 1);       // Log to error_log
+
 header('Content-Type: application/json');
 require_once 'config.php';
 require_once 'security_helper.php';
 secure_session_start();
-require_admin();
+require_unit_head();  // Allow admins (1) and unit heads (2) to extend time
 csrf_require();
 
 // Parse RouterOS uptime string to seconds
@@ -64,57 +69,122 @@ require_once 'routers_config.php';
 // PHASE 4: Look up which router the user is assigned to
 require_once 'dbconfig.php';
 try {
-	$stmt = $DB_con->prepare("SELECT assigned_router FROM hotspot_vouchers WHERE user_name = :user_name LIMIT 1");
+	$stmt = $DB_con->prepare("SELECT assigned_router, user_name, package_id FROM hotspot_vouchers WHERE user_name = :user_name AND status = 'Active' LIMIT 1");
 	$stmt->execute([':user_name' => $username]);
-	$result = $stmt->fetch(PDO::FETCH_ASSOC);
-	$assigned_router = $result ? $result['assigned_router'] : 'converge';
+	$voucher = $stmt->fetch(PDO::FETCH_ASSOC);
+	
+	if (!$voucher) {
+		echo json_encode(['success' => false, 'message' => "Voucher for user '$username' not found or expired."]);
+		exit;
+	}
+	
+	$assigned_router = $voucher['assigned_router'] ?: 'converge';
 } catch (Exception $e) {
-	$assigned_router = 'converge'; // Default fallback
+	error_log('[ajax_extend_user] DB query error: ' . $e->getMessage());
+	echo json_encode(['success' => false, 'message' => 'Database error occurred.']);
+	exit;
 }
 
-// Connect to the assigned router
-$router_config = getRouterConfig($assigned_router);
-$connection = createRouterConnection($router_config['ip'], $router_config['user'], $router_config['pass'], $router_config['port']);
+// PHASE 5: Try router connection, but have a database fallback
+$routerSuccess = false;
+$errorMsg = '';
 
-if (!$connection['success']) {
-    echo json_encode(['success' => false, 'message' => 'Router connection failed.']);
-    exit;
+try {
+	$router_config = getRouterConfig($assigned_router);
+	$connection = createRouterConnection($router_config['ip'], $router_config['user'], $router_config['pass'], $router_config['port']);
+
+	if ($connection['success']) {
+		$util   = $connection['util'];
+		$client = $connection['client'];
+		$routerSuccess = true;
+	} else {
+		$errorMsg = $connection['error'];
+	}
+} catch (Exception $e) {
+	$errorMsg = $e->getMessage();
 }
-$util   = $connection['util'];
-$client = $connection['client'];
 
-// ── Step 1: Find the user in /ip hotspot user ──────────────────────────────
-$util->setMenu('/ip/hotspot/user');
-$users = $util->find('name', $username);
+// ── Step 1: If router is available, update directly ──────────────────────
+if ($routerSuccess) {
+	try {
+		$util->setMenu('/ip/hotspot/user');
+		$users = $util->find('name', $username);
 
-if (empty($users)) {
-    echo json_encode(['success' => false, 'message' => "User '$username' not found on assigned router ($assigned_router)."]);
-    exit;
+		if (empty($users)) {
+			echo json_encode(['success' => false, 'message' => "User '$username' not found on router."]);
+			exit;
+		}
+
+		$userId       = $users[0]->getProperty('.id');
+		$currentLimit = $users[0]->getProperty('limit-uptime');
+
+		// Calculate new limit-uptime
+		$currentSecs   = parseUptimeToSeconds($currentLimit);
+		$extensionSecs = $extend_mins * 60;
+		$newSecs       = $currentSecs + $extensionSecs;
+		$newLimit      = secondsToRouterOS($newSecs);
+
+		// Update on router
+		$query = new \RouterOS\Query('/ip/hotspot/user/set');
+		$query->equal('.id', $userId);
+		$query->equal('limit-uptime', $newLimit);
+		$client->query($query);
+
+		// Log success
+		require_once 'audit_log.php';
+		auditLog('extend_user', "Extended user '$username' by {$extend_mins} min on $assigned_router (direct). New limit: $newLimit");
+
+		echo json_encode([
+			'success'   => true,
+			'message'   => "Extended $username by {$extend_mins} minutes. New limit: $newLimit",
+			'new_limit' => $newLimit,
+		]);
+		exit;
+	} catch (Exception $e) {
+		error_log('[ajax_extend_user] Router operation failed: ' . $e->getMessage());
+		// Fall through to database method below
+	}
 }
 
-$userId       = $users[0]->getProperty('.id');
-$currentLimit = $users[0]->getProperty('limit-uptime'); // e.g. "5h" or ""
-
-// ── Step 2: Calculate new limit-uptime ────────────────────────────────────
-$currentSecs   = parseUptimeToSeconds($currentLimit);
-$extensionSecs = $extend_mins * 60;
-$newSecs       = $currentSecs + $extensionSecs;
-$newLimit      = secondsToRouterOS($newSecs);
-
-// ── Step 3: Push update to router ─────────────────────────────────────────
-// Note: ModernRouterClient::query() already calls ->read() internally, so we
-// do NOT chain ->read() again here.
-$query = new \RouterOS\Query('/ip/hotspot/user/set');
-$query->equal('.id', $userId);
-$query->equal('limit-uptime', $newLimit);
-$client->query($query);
-
-// ── Step 4: Log the action ────────────────────────────────────────────────
-require_once 'audit_log.php';
-auditLog('extend_user', "Extended user '$username' by {$extend_mins} min on $assigned_router. New limit-uptime: $newLimit");
-
-echo json_encode([
-    'success'   => true,
-    'message'   => "Extended $username by {$extend_mins} minutes. New limit: $newLimit",
-    'new_limit' => $newLimit,
-]);
+// ── FALLBACK: Router unavailable - store extension in database ──────────────
+// This way the time increase is recorded and can sync when router recovers
+try {
+	error_log("[ajax_extend_user] Router unavailable ($errorMsg). Using database fallback for $username.");
+	
+	// Add extension minutes to the user's limit_uptime in the voucher record
+	// We'll store it as a JSON note to track pending extensions
+	$stmt = $DB_con->prepare("
+		UPDATE hotspot_vouchers 
+		SET limit_uptime = TIME_FORMAT(
+				TIME_ADD(
+					COALESCE(STR_TO_DATE(limit_uptime, '%i:%s'), SEC_TO_TIME(0)),
+					SEC_TO_TIME(:extension_secs)
+				),
+				'%H:%i:%s'
+			),
+			notes = CONCAT(COALESCE(notes, ''), '\n[Extended +', :mins, 'min by ', :user, ' - ', DATE_FORMAT(NOW(), '%Y-%m-%d %H:%i:%s'), ' - pending router sync]')
+		WHERE user_name = :user_name AND status = 'Active'
+	");
+	
+	$stmt->execute([
+		':extension_secs' => $extend_mins * 60,
+		':mins' => $extend_mins,
+		':user' => $_SESSION['username'] ?? 'unknown',
+		':user_name' => $username
+	]);
+	
+	require_once 'audit_log.php';
+	auditLog('extend_user_db', "Extended user '$username' by {$extend_mins} min (database fallback - router unavailable)");
+	
+	echo json_encode([
+		'success'   => true,
+		'message'   => "Time extension recorded (router will sync when available). Extended $username by {$extend_mins} minutes.",
+		'pending'   => true
+	]);
+	exit;
+} catch (Exception $e) {
+	error_log('[ajax_extend_user] Database fallback failed: ' . $e->getMessage());
+	echo json_encode(['success' => false, 'message' => 'Could not extend time at this moment. Please try again later.']);
+	exit;
+}
+?>

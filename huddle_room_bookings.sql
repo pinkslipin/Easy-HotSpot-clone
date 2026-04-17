@@ -65,9 +65,8 @@ CREATE TABLE IF NOT EXISTS `huddle_room_pricing` (
 
 -- ── Seed Pricing Rules ────────────────────────────────────────
 INSERT IGNORE INTO `huddle_room_pricing` (`occupancy_level`, `hourly_rate`, `daily_rate`) VALUES
-(5,  260.00, 1680.00),   -- 5 pax: 260/hr, ~280/hr for 8-hour day
-(8,  450.00, 2880.00),   -- 8 pax: 450/hr
-(10, 600.00, 3840.00);   -- Extrapolated: 10 pax at 150 per extra person
+(5,  280.00, 2240.00),   -- 5 pax: 280/hr, 2240 for 8-hour day
+(8,  485.00, 3880.00);   -- 8 pax: 485/hr, 3880 for 8-hour day
 
 -- ── Table: Huddle Room Availability Rules ────────────────────
 CREATE TABLE IF NOT EXISTS `huddle_room_availability` (

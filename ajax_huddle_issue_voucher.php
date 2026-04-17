@@ -115,10 +115,8 @@ try {
     $package_type = $pkg_info['type'] ?? 'duration';
     $expires_on = getExpiryDate();
 
-    $stmtBk = $DB_con->prepare('SELECT booking_id FROM hotspot_vouchers ORDER BY booking_id DESC LIMIT 1');
-    $stmtBk->execute();
-    $rowBk = $stmtBk->fetch(PDO::FETCH_ASSOC);
-    $voucher_booking_id = ($rowBk && isset($rowBk['booking_id'])) ? intval($rowBk['booking_id']) + 1 : 1;
+    // Use the actual huddle booking ID (critical: must link correctly to huddle_room_bookings)
+    $voucher_booking_id = $booking_id;
 
     $uid = $voucher_booking_id . '-1-' . date('dmY');
     $batch_id = strtoupper($package_id) . '-HUD-' . date('mdHi');
@@ -128,12 +126,14 @@ try {
             created_on, created_by, creator, user_name, password,
             printed_times, printed_last, status, group_of, booking_id,
             limit_uptime, limit_bytes, profile, uid, batch_id,
-            price, expires_on, package_id, package_name, package_type
+            price, expires_on, package_id, package_name, package_type,
+            assigned_router
         ) VALUES (
             NOW(), :created_by, :creator, :user_name, :password,
             0, '', 'Active', 1, :booking_id,
             :limit_uptime, :limit_bytes, :profile, :uid, :batch_id,
-            :price, :expires_on, :package_id, :package_name, :package_type
+            :price, :expires_on, :package_id, :package_name, :package_type,
+            :assigned_router
         )
     ");
 
@@ -153,6 +153,7 @@ try {
         ':package_id' => $package_id,
         ':package_name' => $package_name,
         ':package_type' => $package_type,
+        ':assigned_router' => 'converge'
     ]);
     
 } catch (PDOException $e) {

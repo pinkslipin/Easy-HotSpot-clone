@@ -78,6 +78,40 @@ $upcoming_bookings = $todayStmt->fetchAll(PDO::FETCH_ASSOC);
         
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; }
         .modal-overlay.active { display: flex; }
+        
+        /* Two-Column Layout for Bookings + Active Vouchers */
+        .huddle-layout-container { display: grid; grid-template-columns: 1.5fr 1fr; gap: 24px; margin-top: 20px; }
+        .huddle-bookings-panel { }
+        .huddle-vouchers-panel { background: #f8f9fa; padding: 16px; border-radius: 6px; border: 1px solid #e9ecef; height: fit-content; position: sticky; top: 20px; }
+        
+        .voucher-item { background: white; padding: 12px; border-radius: 4px; margin-bottom: 8px; border-left: 3px solid #667eea; }
+        .voucher-item.expired { border-left-color: #dc3545; opacity: 0.7; }
+        .voucher-item.active { border-left-color: #28a745; }
+        
+        .voucher-username { font-weight: 700; color: #333; font-size: 13px; margin-bottom: 4px; }
+        .voucher-ip { color: #666; font-size: 12px; }
+        .voucher-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; font-size: 11px; }
+        .voucher-meta-item { color: #888; }
+        .voucher-meta-label { color: #999; font-size: 10px; }
+        .voucher-status { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 600; margin-top: 6px; }
+        .voucher-status.active { background: #d4edda; color: #155724; }
+        .voucher-status.expired { background: #f8d7da; color: #721c24; }
+        
+        .voucher-action-btn { padding: 4px 8px; border: 1px solid #ddd; background: white; border-radius: 3px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.2s; }
+        .voucher-action-btn:hover { background: #f5f5f5; border-color: #999; }
+        .extend-btn { color: #ffc107; }
+        .extend-btn:hover { background: #fff9e6; border-color: #ffc107; }
+        .reset-btn { color: #17a2b8; }
+        .reset-btn:hover { background: #e7f3f7; border-color: #17a2b8; }
+        .remove-btn { color: #dc3545; }
+        .remove-btn:hover { background: #ffe6e6; border-color: #dc3545; }
+        
+        /* Responsive: Stack on smaller screens */
+        @media (max-width: 1200px) {
+            .huddle-layout-container { grid-template-columns: 1fr; }
+            .huddle-vouchers-panel { position: relative; top: 0; }
+        }
+        
         .modal-content { background: white; padding: 24px; border-radius: 8px; max-width: 500px; width: 90%; }
         .modal-content h3 { margin-bottom: 18px; }
         .modal-form-group { margin-bottom: 16px; }
@@ -104,13 +138,18 @@ $upcoming_bookings = $todayStmt->fetchAll(PDO::FETCH_ASSOC);
     
     <div id="message-area"></div>
     
-    <?php if (empty($upcoming_bookings)): ?>
-        <div style="text-align: center; padding: 40px; color: #999;">
-            <p>No upcoming bookings yet.</p>
-        </div>
-    <?php else: ?>
-        <?php foreach ($upcoming_bookings as $booking): ?>
-            <div class="booking-card <?= $booking['status'] ?>">
+    <!-- Two-Column Layout: Bookings (left) + Active Vouchers (right) -->
+    <div class="huddle-layout-container">
+        
+        <!-- LEFT: Bookings -->
+        <div class="huddle-bookings-panel">
+            <?php if (empty($upcoming_bookings)): ?>
+                <div style="text-align: center; padding: 40px; color: #999;">
+                    <p>No upcoming bookings yet.</p>
+                </div>
+            <?php else: ?>
+                <?php foreach ($upcoming_bookings as $booking): ?>
+                    <div class="booking-card <?= $booking['status'] ?>">
                 <div class="booking-header">
                     <div>
                         <div class="booking-ref"><?= htmlspecialchars($booking['booking_ref']) ?></div>
@@ -165,6 +204,19 @@ $upcoming_bookings = $todayStmt->fetchAll(PDO::FETCH_ASSOC);
             </div>
         <?php endforeach; ?>
     <?php endif; ?>
+        </div><!-- /.huddle-bookings-panel -->
+        
+        <!-- RIGHT: Active Vouchers -->
+        <div class="huddle-vouchers-panel">
+            <h3 style="margin: 0 0 16px; font-size: 16px; font-weight: 700;">
+                <i class="fa fa-wifi"></i> Active Vouchers
+            </h3>
+            <div id="vouchers-list" style="font-size: 13px; color: #666;">
+                <i class="fa fa-spinner fa-spin"></i> Loading...
+            </div>
+        </div><!-- /.huddle-vouchers-panel -->
+        
+    </div><!-- /.huddle-layout-container -->
 </div>
 
 <!-- Check-in Modal -->
@@ -257,14 +309,313 @@ $upcoming_bookings = $todayStmt->fetchAll(PDO::FETCH_ASSOC);
     </div>
 </div>
 
+<!-- Extend Voucher Time Modal -->
+<div class="modal-overlay" id="extend-modal">
+    <div class="modal-content" style="max-width: 500px;">
+        <div style="background: #f0ad4e; padding: 16px; border-radius: 6px 6px 0 0; margin: -24px -24px 16px -24px; color: white;">
+            <h3 style="margin: 0; font-size: 18px; font-weight: 700;">
+                <i class="fa fa-clock-o"></i> Extend Time for <span id="extend-display-username">User</span>
+            </h3>
+        </div>
+        <form id="extend-form">
+            <input type="hidden" id="extend-hidden-username" value="">
+            
+            <div class="modal-form-group">
+                <label style="font-weight: 600; margin-bottom: 12px;">Add Time:</label>
+                <select id="extend-minutes-select" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+                    <option value="30">+30 Minutes</option>
+                    <option value="60" selected>+1 Hour</option>
+                    <option value="120">+2 Hours</option>
+                    <option value="180">+3 Hours</option>
+                    <option value="300">+5 Hours</option>
+                    <option value="360">+6 Hours</option>
+                </select>
+            </div>
+            
+            <p style="font-size: 12px; color: #666; margin-top: 12px;">
+                <i class="fa fa-info-circle"></i> Time is added to the user's remaining limit. They will NOT be disconnected.
+            </p>
+            
+            <div class="modal-actions" style="margin-top: 20px; display: flex; gap: 8px; justify-content: flex-end;">
+                <button type="button" class="btn-sm" onclick="closeExtendModal()">Cancel</button>
+                <button type="button" class="btn-sm primary" onclick="submitExtendModal()" style="background: #f0ad4e; border-color: #f0ad4e; color: white;">
+                    <i class="fa fa-check"></i> Extend Time
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script src="js/jquery-2.1.1.min.js"></script>
 <script>
+// ========================================
+// PACKAGE DATA FOR AUTO-POPULATION
+// ========================================
+const PACKAGE_DATA = <?php echo getPackagesForJavaScript(); ?>;
+
+// ========================================
+// ACTIVE VOUCHERS PANEL
+// ========================================
+let vouchersRefreshTimer = null;
+
+/**
+ * Fetch and display active vouchers from huddle room bookings
+ */
+function loadActiveVouchers() {
+    $.ajax({
+        url: 'ajax_huddle_active_vouchers.php',
+        method: 'GET',
+        dataType: 'json',
+        success: function(data) {
+            console.log('Vouchers loaded:', data);
+            if (data.success) {
+                displayActiveVouchers(data.vouchers);
+            } else {
+                $('#vouchers-list').html('<small style="color: #999;">Error: ' + (data.message || 'Unknown error') + '</small>');
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Error loading vouchers:', error);
+            $('#vouchers-list').html('<small style="color: #999;">Unable to load vouchers (Network error)</small>');
+        }
+    });
+}
+
+/**
+ * Render active vouchers in the right panel
+ */
+function displayActiveVouchers(vouchers) {
+    const $list = $('#vouchers-list');
+    
+    if (!vouchers || vouchers.length === 0) {
+        $list.html('<small style="color: #999; display: block; text-align: center; padding: 20px 0;">No active vouchers</small>');
+        return;
+    }
+    
+    let html = '';
+    vouchers.forEach(function(v) {
+        const statusClass = v.expired ? 'expired' : 'active';
+        const statusText = v.expired ? '✗ EXPIRED' : '✓ ACTIVE';
+        html += `
+            <div class="voucher-item ${statusClass}">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div style="flex: 1;">
+                        <div class="voucher-username">${escapeHtml(v.username)}</div>
+                        <div class="voucher-ip"><i class="fa fa-globe"></i> ${escapeHtml(v.address)}</div>
+                        <div class="voucher-meta">
+                            <div class="voucher-meta-item">
+                                <div class="voucher-meta-label">Session</div>
+                                <strong style="color: #333;">${escapeHtml(v.session_uptime)}</strong>
+                            </div>
+                            <div class="voucher-meta-item">
+                                <div class="voucher-meta-label">Time Left</div>
+                                <strong style="color: #333;">${escapeHtml(v.voucher_left)}</strong>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 4px; margin-left: 8px; flex-wrap: wrap; justify-content: flex-end;">
+                        <button class="voucher-action-btn extend-btn" data-username="${escapeHtml(v.username)}" title="Extend time">
+                            <i class="fa fa-clock-o"></i> Ext
+                        </button>
+                        <button class="voucher-action-btn reset-btn" data-username="${escapeHtml(v.username)}" title="Reset password">
+                            <i class="fa fa-refresh"></i> Rst
+                        </button>
+                        <button class="voucher-action-btn remove-btn" data-username="${escapeHtml(v.username)}" title="Remove user">
+                            <i class="fa fa-trash"></i> Del
+                        </button>
+                    </div>
+                </div>
+                <span class="voucher-status ${statusClass}" style="margin-top: 8px; display: block;">${statusText}</span>
+            </div>
+        `;
+    });
+    
+    $list.html(html);
+    
+    // Bind action button handlers
+    bindVoucherActions();
+}
+
+/**
+ * Start auto-refresh of active vouchers (every 30 seconds)
+ */
+function startVouchersAutoRefresh() {
+    loadActiveVouchers();
+    vouchersRefreshTimer = setInterval(loadActiveVouchers, 30000);
+}
+
+/**
+ * Escape HTML to prevent XSS
+ */
+function escapeHtml(text) {
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, m => map[m]);
+}
+
+// ========================================
+// VOUCHER ACTION HANDLERS
+// ========================================
+
+/**
+ * Bind click handlers to voucher action buttons
+ */
+function bindVoucherActions() {
+    $('#vouchers-list').off('click.voucher'); // Remove old handlers
+    
+    // Extend time button
+    $('#vouchers-list').on('click.voucher', '.extend-btn', function() {
+        const username = $(this).data('username');
+        showExtendModal(username);
+    });
+    
+    // Reset password button
+    $('#vouchers-list').on('click.voucher', '.reset-btn', function() {
+        const username = $(this).data('username');
+        if (confirm('Reset password for ' + username + '? They will receive a new password.')) {
+            handleResetPassword(username);
+        }
+    });
+    
+    // Remove user button
+    $('#vouchers-list').on('click.voucher', '.remove-btn', function() {
+        const username = $(this).data('username');
+        if (confirm('Remove ' + username + ' from network? (They can reconnect with new login if voucher still valid)')) {
+            handleRemoveUser(username);
+        }
+    });
+}
+
+/**
+ * Show extend time modal
+ */
+function showExtendModal(username) {
+    $('#extend-display-username').text(username);
+    $('#extend-hidden-username').val(username);
+    $('#extend-minutes-select').val('60'); // Default to 1 hour
+    $('#extend-modal').addClass('active');
+}
+
+/**
+ * Close extend modal
+ */
+function closeExtendModal() {
+    $('#extend-modal').removeClass('active');
+}
+
+/**
+ * Submit extend modal form
+ */
+function submitExtendModal() {
+    const username = $('#extend-hidden-username').val();
+    const minutes = parseInt($('#extend-minutes-select').val());
+    
+    if (!username || !minutes) {
+        alert('Invalid input');
+        return;
+    }
+    
+    handleExtendTime(username, minutes);
+    closeExtendModal();
+}
+
+/**
+ * Extend voucher time
+ */
+function handleExtendTime(username, minutes) {
+    $.ajax({
+        url: 'ajax_extend_user.php',
+        method: 'POST',
+        data: {
+            username: username,
+            extend_minutes: minutes,
+            csrf_token: $('input[name="csrf_token"]').val()
+        },
+        dataType: 'json',
+        success: function(data) {
+            console.log('Extend response:', data);
+            if (data.success) {
+                alert('✓ Extended ' + username + ' by ' + minutes + ' minutes');
+                loadActiveVouchers(); // Refresh list
+            } else {
+                alert('✗ Error: ' + (data.message || 'Failed to extend time'));
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Extend error:', {status: status, error: error, response: xhr.responseText});
+            alert('✗ Error extending time: ' + (xhr.responseText ? xhr.responseText.substring(0, 100) : error));
+        }
+    });
+}
+
+/**
+ * Reset user password
+ */
+function handleResetPassword(username) {
+    $.ajax({
+        url: 'ajax_kick_session.php',
+        method: 'POST',
+        data: {
+            username: username,
+            csrf_token: $('input[name="csrf_token"]').val()
+        },
+        dataType: 'json',
+        success: function(data) {
+            if (data.success) {
+                alert('✓ Session reset for ' + username + '. They must log in again.');
+                loadActiveVouchers(); // Refresh list
+            } else {
+                alert('✗ Error: ' + (data.message || 'Failed to reset session'));
+            }
+        },
+        error: function() {
+            alert('✗ Network error while resetting session');
+        }
+    });
+}
+
+/**
+ * Remove user from network completely
+ */
+function handleRemoveUser(username) {
+    $.ajax({
+        url: 'ajax_rem_user.php',
+        method: 'POST',
+        data: {
+            username: username,
+            csrf_token: $('input[name="csrf_token"]').val()
+        },
+        dataType: 'json',
+        success: function(data) {
+            console.log('Remove response:', data);
+            if (data.success) {
+                alert('✓ Removed ' + username + ' from network');
+                loadActiveVouchers(); // Refresh list
+            } else {
+                alert('✗ Error: ' + (data.message || 'Failed to remove user'));
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Remove error:', {status: status, error: error, response: xhr.responseText});
+            alert('✗ Error removing user: ' + (xhr.responseText ? xhr.responseText.substring(0, 100) : error));
+        }
+    });
+}
+
+// ========================================
+// PRICING & BOOKING LOGIC
+// ========================================
 // Pricing structure
 const PRICING = {
-    5: 260,    // 5 pax: ₱260/hr
-    8: 450     // 8 pax and above: ₱450/hr
+    5: 280,    // 5 pax: ₱280/hr
+    8: 485     // 8 pax and above: ₱485/hr
 };
-const EXTRA_PAX_RATE = 58;  // ₱58 per additional person
+const EXTRA_PAX_RATE = 56;  // ₱56 per additional person
 
 let currentBookingId = null;
 let originalOccupancy = null;
@@ -303,9 +654,23 @@ function openCheckinModal(bookingId, occupancy, price) {
     // Clear voucher form
     $('#voucher-username').val('');
     $('#voucher-password').val('');
-    $('#voucher-data-limit').val(0);
+    // Auto-populate data limit from selected package
+    updateDataLimitFromPackage();
     
     $('#checkin-modal').addClass('active');
+}
+
+/**
+ * Update data limit field based on currently selected package.
+ * Called when modal opens or when package dropdown changes.
+ */
+function updateDataLimitFromPackage() {
+    const selectedPackageId = $('#voucher-package').val();
+    if (selectedPackageId && PACKAGE_DATA[selectedPackageId]) {
+        const packageInfo = PACKAGE_DATA[selectedPackageId];
+        const dataLimitGb = packageInfo.data_limit_gb;
+        $('#voucher-data-limit').val(dataLimitGb);
+    }
 }
 
 function updatePriceDisplay() {
@@ -332,6 +697,16 @@ $('#issue-voucher-check').on('change', function() {
         $('#voucher-form-section').hide();
     }
 });
+
+// ========================================
+// AUTO-POPULATE DATA LIMIT BY PACKAGE
+// ========================================
+/**
+ * Update data limit field when package is selected
+ * Uses the data_limit_gb from PACKAGE_DATA which is defined in packages_config.php
+ * User can still manually override the value
+ */
+$('#voucher-package').on('change', updateDataLimitFromPackage);
 
 $('#checkin-form').on('submit', function(e) {
     e.preventDefault();
@@ -451,6 +826,14 @@ function showMessage(msg, type) {
 function getCookie(name) {
     return document.querySelector('[name="csrf_token"]')?.value || '';
 }
+
+// ========================================
+// PAGE INITIALIZATION
+// ========================================
+$(document).ready(function() {
+    // Start auto-refreshing active vouchers
+    startVouchersAutoRefresh();
+});
 </script>
 </body>
 </html>

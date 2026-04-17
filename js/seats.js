@@ -261,6 +261,11 @@
         $('#btn-walkin-cancel').on('click', hideWalkinForm);
         // Voucher form — Issue & Seat submit
         $('#btn-walkin-submit').on('click', submitWalkin);
+        // ── Auto-populate data limit by package selection ────────────────────
+        // When user selects a package, auto-fill the data limit from package config
+        // User can still manually override this value
+        $('#swf-package').on('change', updateDataLimitFromPackage);
+        // ────────────────────────────────────────────────────────────────────
         // Extend — open panel
         $('#btn-detail-extend').on('click', showExtendPanel);
         // Extend — cancel
@@ -306,7 +311,22 @@
         $('#seat-action-modal').data('walkin-action', action);
         $('.seat-modal-actions').hide();
         $('#seat-walkin-form').show();
+        // Auto-populate data limit from the currently selected package
+        updateDataLimitFromPackage();
         $('#swf-username').focus();
+    }
+
+    /**
+     * Update the data limit field based on the current package selection.
+     * Called when form is shown or when package dropdown changes.
+     */
+    function updateDataLimitFromPackage() {
+        var selectedPackageId = $('#swf-package').val();
+        if (selectedPackageId && typeof PACKAGE_DATA !== 'undefined' && PACKAGE_DATA[selectedPackageId]) {
+            var packageInfo = PACKAGE_DATA[selectedPackageId];
+            var dataLimitGb = packageInfo.data_limit_gb;
+            $('#swf-limit-bytes').val(dataLimitGb);
+        }
     }
 
     /** Hide the voucher form and restore the action buttons. */

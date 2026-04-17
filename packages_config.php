@@ -44,6 +44,7 @@ $VOUCHER_EXPIRY_DAYS = 30;
  * - category: For grouping in UI ('individual', 'daily', 'unli')
  * - price: Price in local currency
  * - type: 'duration' or 'window'
+ * - data_limit_gb: Default data limit in GB (0 = unlimited, auto-populates in voucher form)
  * 
  * For duration packages:
  * - limit_uptime: RouterOS uptime limit string (e.g., '1h', '3h', '1d', '1w')
@@ -65,6 +66,7 @@ $PACKAGES = [
         'price' => 50.00,
         'type' => 'duration',
         'limit_uptime' => '1h',
+        'data_limit_gb' => 3,
     ],
     'ind_1h_student' => [
         'id' => 'ind_1h_student',
@@ -73,6 +75,7 @@ $PACKAGES = [
         'price' => 39.00,
         'type' => 'duration',
         'limit_uptime' => '1h',
+        'data_limit_gb' => 3,
     ],
     'ind_2h' => [
         'id' => 'ind_2h',
@@ -81,6 +84,7 @@ $PACKAGES = [
         'price' => 100.00,
         'type' => 'duration',
         'limit_uptime' => '2h',
+        'data_limit_gb' => 6,
     ],
     'ind_3h' => [
         'id' => 'ind_3h',
@@ -89,6 +93,7 @@ $PACKAGES = [
         'price' => 138.00,
         'type' => 'duration',
         'limit_uptime' => '3h',
+        'data_limit_gb' => 9,
     ],
     'ind_5h' => [
         'id' => 'ind_5h',
@@ -97,6 +102,7 @@ $PACKAGES = [
         'price' => 188.00,
         'type' => 'duration',
         'limit_uptime' => '5h',
+        'data_limit_gb' => 15,
     ],
     
     // ==================
@@ -113,6 +119,7 @@ $PACKAGES = [
         'window_description' => '8AM - 6PM',
         'spans_midnight' => false,
         'profile_suffix' => 'DayPass',
+        'data_limit_gb' => 20,
     ],
     'night_18_5' => [
         'id' => 'night_18_5',
@@ -125,6 +132,7 @@ $PACKAGES = [
         'window_description' => '6PM - 5AM',
         'spans_midnight' => true,
         'profile_suffix' => 'NightPass',
+        'data_limit_gb' => 20,
     ],
     'ms_unli_8_5' => [
         'id' => 'ms_unli_8_5',
@@ -137,6 +145,7 @@ $PACKAGES = [
         'window_description' => '8AM - 5AM (next day)',
         'spans_midnight' => true,
         'profile_suffix' => 'MindspaceUnli',
+        'data_limit_gb' => 20,
     ],
     
     // ==================
@@ -149,6 +158,7 @@ $PACKAGES = [
         'price' => 1888.00,
         'type' => 'duration',
         'limit_uptime' => '1w',
+        'data_limit_gb' => 0,
     ],
     'unli_15d' => [
         'id' => 'unli_15d',
@@ -157,6 +167,7 @@ $PACKAGES = [
         'price' => 2988.00,
         'type' => 'duration',
         'limit_uptime' => '15d',
+        'data_limit_gb' => 0,
     ],
     'unli_month' => [
         'id' => 'unli_month',
@@ -165,6 +176,7 @@ $PACKAGES = [
         'price' => 5888.00,
         'type' => 'duration',
         'limit_uptime' => '30d',
+        'data_limit_gb' => 0,
     ],
 ];
 
@@ -569,4 +581,24 @@ function getRequiredWindowProfiles() {
     }
     
     return $profiles;
+}
+
+/**
+ * Export packages for JavaScript (used in voucher form auto-population)
+ * Returns JSON with id and data_limit_gb for each package
+ * @return string JSON string safe for embedding in <script> tags
+ */
+function getPackagesForJavaScript() {
+    global $PACKAGES;
+    $packageData = [];
+    
+    foreach ($PACKAGES as $pkg) {
+        $packageData[$pkg['id']] = [
+            'id' => $pkg['id'],
+            'name' => $pkg['name'],
+            'data_limit_gb' => $pkg['data_limit_gb'] ?? 0
+        ];
+    }
+    
+    return json_encode($packageData, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP);
 }

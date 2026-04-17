@@ -697,6 +697,9 @@ if (empty($seat_profiles)) {
 /* CSRF token injected for use by seats.js */
 var CSRF_TOKEN = <?= json_encode($csrf) ?>;
 
+/* Package data for auto-populating data limits */
+var PACKAGE_DATA = <?php echo getPackagesForJavaScript(); ?>;
+
 /* Allow the Refresh Now button to trigger an immediate reload */
 function loadSeatsNow() {
     if (typeof window._loadSeats === 'function') window._loadSeats();

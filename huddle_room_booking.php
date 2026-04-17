@@ -108,7 +108,7 @@ while ($row = $pricingStmt->fetch(PDO::FETCH_ASSOC)) {
             <?php endforeach; ?>
             <div class="price-item">
                 <span><small>Additional persons</small></span>
-                <small><strong>₱58/person</strong></small>
+                <small><strong>₱56/person</strong></small>
             </div>
         </div>
         
@@ -179,9 +179,8 @@ while ($row = $pricingStmt->fetch(PDO::FETCH_ASSOC)) {
                     <label for="occupancy">Expected Number of People *</label>
                     <select id="occupancy" name="occupancy" required>
                         <option value="">Select occupancy</option>
-                        <option value="5">5 People (₱260/hr)</option>
-                        <option value="8">8 People (₱450/hr)</option>
-                        <option value="10">10+ People (₱600/hr)</option>
+                        <option value="5">5 People (₱280/hr)</option>
+                        <option value="8">8 People (₱485/hr)</option>
                     </select>
                 </div>
             </div>
@@ -219,9 +218,8 @@ while ($row = $pricingStmt->fetch(PDO::FETCH_ASSOC)) {
 let currentDate = new Date();
 let selectedDate = null;
 const hourlyRates = {
-    5: 260,
-    8: 450,
-    10: 600
+    5: 280,
+    8: 485
 };
 
 function renderCalendar() {

@@ -105,11 +105,18 @@ if (empty($users)) {
     seJsonFail("User '$username' not found on router.");
 }
 
-$userId       = $users[0]->getProperty('.id');
-$currentLimit = $users[0]->getProperty('limit-uptime') ?? '';
+$userId        = $users[0]->getProperty('.id');
+$currentLimit  = $users[0]->getProperty('limit-uptime') ?? '';
+$sessionUptime = $users[0]->getProperty('session-uptime') ?? '';
 
-// Add extension to existing limit
-$newSecs  = seParseUptime($currentLimit) + ($extend_mins * 60);
+// Calculate remaining time and add extension
+// remaining = max(0, limit - session_already_used)
+// new_limit = session_already_used + remaining + extension
+$limitSecs = seParseUptime($currentLimit);
+$sessionSecs = seParseUptime($sessionUptime);
+$extensionSecs = $extend_mins * 60;
+$remainingSecs = max(0, $limitSecs - $sessionSecs);
+$newSecs  = $sessionSecs + $remainingSecs + $extensionSecs;
 $newLimit = seSecondsToRos($newSecs);
 
 // Push to router

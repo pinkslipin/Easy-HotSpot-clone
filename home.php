@@ -248,9 +248,6 @@ require_once 'pricing_config.php';
                     <a href="huddle_room_manage.php" class="action-btn btn-pink">
                         <i class="fa fa-tasks"></i> Manage Bookings
                     </a>
-                    <a href="router_management.php" class="action-btn btn-teal">
-                        <i class="fa fa-server"></i> Router Management
-                    </a>
                     <a href="portal.php" class="action-btn btn-orange">
                         <i class="fa fa-paint-brush"></i> Captive Portal
                     </a>

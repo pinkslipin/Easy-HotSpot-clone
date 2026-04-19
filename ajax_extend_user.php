@@ -92,11 +92,16 @@ try {
     
     $userId = $users[0]->getProperty('.id');
     $currentLimit = $users[0]->getProperty('limit-uptime') ?? '';
+    $sessionUptime = $users[0]->getProperty('session-uptime') ?? '';
     
-    // Calculate new limit
-    $currentSecs = parseUptime($currentLimit);
+    // Calculate remaining time and add extension
+    // remaining = max(0, limit - session_already_used)
+    // new_limit = session_already_used + remaining + extension
+    $limitSecs = parseUptime($currentLimit);
+    $sessionSecs = parseUptime($sessionUptime);
     $extensionSecs = $extend_mins * 60;
-    $newSecs = $currentSecs + $extensionSecs;
+    $remainingSecs = max(0, $limitSecs - $sessionSecs);
+    $newSecs = $sessionSecs + $remainingSecs + $extensionSecs;
     $newLimit = secondsToRos($newSecs);
     
     // Update router

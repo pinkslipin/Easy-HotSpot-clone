@@ -114,12 +114,12 @@ $PACKAGES = [
         'category' => 'daily',
         'price' => 238.00,
         'type' => 'window',
-        'window_start' => '08:00',
+        'window_start' => '06:00',
         'window_end' => '18:00',
-        'window_description' => '8AM - 6PM',
+        'window_description' => '6AM - 6PM',
         'spans_midnight' => false,
         'profile_suffix' => 'DayPass',
-        'data_limit_gb' => 20,
+        'data_limit_gb' => 15,
     ],
     'night_18_5' => [
         'id' => 'night_18_5',
@@ -128,11 +128,11 @@ $PACKAGES = [
         'price' => 208.00,
         'type' => 'window',
         'window_start' => '18:00',
-        'window_end' => '05:00',
-        'window_description' => '6PM - 5AM',
+        'window_end' => '06:00',
+        'window_description' => '6PM - 6AM',
         'spans_midnight' => true,
         'profile_suffix' => 'NightPass',
-        'data_limit_gb' => 20,
+        'data_limit_gb' => 15,
     ],
     'ms_unli_8_5' => [
         'id' => 'ms_unli_8_5',
@@ -145,12 +145,30 @@ $PACKAGES = [
         'window_description' => '8AM - 5AM (next day)',
         'spans_midnight' => true,
         'profile_suffix' => 'MindspaceUnli',
-        'data_limit_gb' => 20,
+        'data_limit_gb' => 15,
     ],
     
     // ==================
     // MINDSPACE UNLI PASSES
     // ==================
+    'unli_3d' => [
+        'id' => 'unli_3d',
+        'name' => '3-Day Pass',
+        'category' => 'unli',
+        'price' => 810.00,
+        'type' => 'duration',
+        'limit_uptime' => '3d',
+        'data_limit_gb' => 15,
+    ],
+    'unli_7d' => [
+        'id' => 'unli_7d',
+        'name' => '7-Day Pass',
+        'category' => 'unli',
+        'price' => 1519.00,
+        'type' => 'duration',
+        'limit_uptime' => '7d',
+        'data_limit_gb' => 15,
+    ],
     'unli_week' => [
         'id' => 'unli_week',
         'name' => 'Weekly Pass',
@@ -158,25 +176,51 @@ $PACKAGES = [
         'price' => 1888.00,
         'type' => 'duration',
         'limit_uptime' => '1w',
-        'data_limit_gb' => 0,
+        'data_limit_gb' => 15,
     ],
     'unli_15d' => [
         'id' => 'unli_15d',
         'name' => '15 Days Pass',
         'category' => 'unli',
-        'price' => 2988.00,
+        'price' => 2580.00,
         'type' => 'duration',
         'limit_uptime' => '15d',
-        'data_limit_gb' => 0,
+        'data_limit_gb' => 15,
     ],
     'unli_month' => [
         'id' => 'unli_month',
         'name' => 'Monthly Pass',
         'category' => 'unli',
-        'price' => 5888.00,
+        'price' => 4980.00,
         'type' => 'duration',
-        'limit_uptime' => '30d',
-        'data_limit_gb' => 0,
+        'limit_uptime' => '90d',
+        'data_limit_gb' => 15,
+    ],
+    
+    // ==================
+    // BOARD REVIEWEE RATES
+    // ==================
+    'reviewee_day' => [
+        'id' => 'reviewee_day',
+        'name' => 'Day Pass (Reviewee)',
+        'category' => 'reviewee',
+        'price' => 290.00,
+        'type' => 'window',
+        'window_start' => '06:00',
+        'window_end' => '18:00',
+        'window_description' => '6AM - 6PM',
+        'spans_midnight' => false,
+        'profile_suffix' => 'RevieweeDay',
+        'data_limit_gb' => 15,
+    ],
+    'reviewee_3d' => [
+        'id' => 'reviewee_3d',
+        'name' => '3-Day Pass (Reviewee)',
+        'category' => 'reviewee',
+        'price' => 804.00,
+        'type' => 'duration',
+        'limit_uptime' => '3d',
+        'data_limit_gb' => 15,
     ],
 ];
 
@@ -187,6 +231,7 @@ $PACKAGE_CATEGORIES = [
     'individual' => 'Individual Passes',
     'daily' => 'Daily Access (Time Window)',
     'unli' => 'Mindspace Unli Passes',
+    'reviewee' => 'Board Reviewee Rates',
 ];
 
 // ========================================

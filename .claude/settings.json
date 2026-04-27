@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(& \"C:\\\\xampp\\\\mysql\\\\bin\\\\mysql.exe\" -u root -pWildcatY3rn mikrotik -e \"SELECT username, status FROM hotspot_users WHERE username='admin';\")",
+      "PowerShell(& \"C:\\\\xampp\\\\mysql\\\\bin\\\\mysql.exe\" -u root -pWildcatY3rn mikrotik -e \"DELETE FROM audit_log WHERE action = 'login_failed' AND ip_address = '::1';\")",
+      "PowerShell(& \"C:\\\\xampp\\\\mysql\\\\bin\\\\mysql.exe\" -u root -pWildcatY3rn mikrotik -e \"SELECT user_id, username, password, status FROM hotspot_users;\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('Profiles:', [p['name'] for p in d.get\\('profiles',[]\\)]\\)\")",
+      "Bash(ping -n 2 192.168.88.1)",
+      "Read(//c/xampp/htdocs//**)",
+      "Read(//c/xampp/htdocs/**)"
+    ]
+  }
+}

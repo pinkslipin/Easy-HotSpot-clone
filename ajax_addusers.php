@@ -83,11 +83,10 @@ $package_name = getPackageDisplayName($package_id);
 $package_type = $package['type'];
 
 // Determine limit_uptime for router
-if ($package['type'] === 'duration') {
-	$limit_uptime = $package['limit_uptime'];
-} else {
-	// Window packages don't use traditional limit-uptime
-	$limit_uptime = '1d'; // Will be managed by profile script
+$limit_uptime = getPackageLimitUptime($package_id);
+if (!$limit_uptime) {
+	// Fallback for any edge cases
+	$limit_uptime = '12h';
 }
 
 switch ($pass_type) {

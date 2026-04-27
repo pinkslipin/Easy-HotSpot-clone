@@ -662,7 +662,11 @@ if (empty($seat_profiles)) {
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="swf-profile">Bandwidth Profile</label>
+                        <label for="swf-profile">Bandwidth Profile
+                            <span id="swf-profile-auto-badge"
+                                  class="label label-info"
+                                  style="display:none; font-size:10px; margin-left:4px; vertical-align:middle;">auto</span>
+                        </label>
                         <select id="swf-profile" class="form-control">
                             <?php foreach ($seat_profiles as $sp): ?>
                                 <option value="<?= htmlspecialchars($sp) ?>"><?= htmlspecialchars($sp) ?></option>

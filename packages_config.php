@@ -342,9 +342,9 @@ function isWindowPackage($packageId) {
 /**
  * Get the RouterOS limit-uptime for a package
  * For duration packages, returns the limit_uptime.
- * For window packages, returns a synthetic value based on window duration.
+ * For window packages, calculates duration between window_start and window_end.
  * @param string $packageId Package ID
- * @return string|null limit-uptime value or null for window packages
+ * @return string|null limit-uptime value or null if not found
  */
 function getPackageLimitUptime($packageId) {
     $pkg = getPackage($packageId);
@@ -354,8 +354,55 @@ function getPackageLimitUptime($packageId) {
         return $pkg['limit_uptime'];
     }
     
-    // For window packages, return null - they don't use traditional uptime
+    // For window packages, calculate duration between window_start and window_end
+    if ($pkg['type'] === 'window') {
+        return calculateWindowUptime($pkg);
+    }
+    
     return null;
+}
+
+/**
+ * Calculate actual uptime duration for a window package
+ * @param array $pkg Package configuration
+ * @return string RouterOS uptime format (e.g., '12h', '10h')
+ */
+function calculateWindowUptime($pkg) {
+    if (!isset($pkg['window_start']) || !isset($pkg['window_end'])) {
+        return '12h'; // Default fallback
+    }
+    
+    $start = $pkg['window_start']; // e.g., "06:00"
+    $end = $pkg['window_end'];     // e.g., "18:00"
+    
+    // Parse times
+    [$startHour, $startMin] = explode(':', $start);
+    [$endHour, $endMin] = explode(':', $end);
+    
+    $startSecs = (int)$startHour * 3600 + (int)$startMin * 60;
+    $endSecs = (int)$endHour * 3600 + (int)$endMin * 60;
+    
+    // Calculate duration
+    if ($pkg['spans_midnight'] ?? false) {
+        // Window spans midnight: e.g., 18:00 to 06:00
+        // Duration = (86400 - startSecs) + endSecs
+        $durationSecs = (86400 - $startSecs) + $endSecs;
+    } else {
+        // Window within same day: e.g., 06:00 to 18:00
+        $durationSecs = $endSecs - $startSecs;
+    }
+    
+    // Convert seconds to RouterOS format (hh, mm, ss)
+    $hours = intdiv($durationSecs, 3600);
+    $mins = intdiv($durationSecs % 3600, 60);
+    $secs = $durationSecs % 60;
+    
+    $result = '';
+    if ($hours > 0) $result .= $hours . 'h';
+    if ($mins > 0) $result .= $mins . 'm';
+    if ($secs > 0) $result .= $secs . 's';
+    
+    return $result ?: '0s';
 }
 
 /**
@@ -518,89 +565,64 @@ $WIFI_SSID = 'MindspaceWiFi';
 // ========================================
 
 /**
- * Generate RouterOS on-login script for time-window passes
- * 
- * This script checks if current time is within the allowed window:
- * 1. If outside window: disconnect user immediately
- * 2. If inside window: schedule disconnect at window end
- * 
- * @param array $pkg Package configuration
- * @param float $price Price for logging
- * @return string RouterOS script
+ * Generate RouterOS on-login script for time-window passes.
+ *
+ * Behaviour:
+ *   - If the user logs in OUTSIDE the allowed window: kick immediately.
+ *   - If the user logs in INSIDE the window: allow (RouterOS limit-uptime and
+ *     the 5-minute ajax_expired.php cron enforce the window-end cutoff).
+ *
+ * Note: a RouterOS scheduler is intentionally NOT created here because
+ * scheduler on-event scripts run without the $user variable in scope,
+ * making self-removal unreliable.  The ajax_expired.php cron (every 5 min)
+ * provides the window-end kick instead.
+ *
+ * @param array $pkg   Package configuration array from $PACKAGES
+ * @param float $price Unused – kept for signature compatibility
+ * @return string RouterOS script string
  */
 function generateWindowLoginScript($pkg, $price = 0) {
-    $startTime = $pkg['window_start'];
-    $endTime = $pkg['window_end'];
+    $startTime     = $pkg['window_start'];
+    $endTime       = $pkg['window_end'];
     $spansMidnight = $pkg['spans_midnight'] ?? false;
-    $windowDesc = $pkg['window_description'] ?? '';
-    
-    // Convert times to minutes for comparison
+    $windowDesc    = $pkg['window_description'] ?? '';
+
     list($startHour, $startMin) = explode(':', $startTime);
-    list($endHour, $endMin) = explode(':', $endTime);
-    $startMinutes = intval($startHour) * 60 + intval($startMin);
-    $endMinutes = intval($endHour) * 60 + intval($endMin);
-    
-    // Build the RouterOS script
-    // The script uses RouterOS scripting language
+    list($endHour,   $endMin)   = explode(':', $endTime);
+    $startSecs = (int)$startHour * 3600 + (int)$startMin * 60;
+    $endSecs   = (int)$endHour   * 3600 + (int)$endMin   * 60;
+
+    // Build script using string concatenation so PHP does not expand RouterOS
+    // variables (e.g. $user, $curSecs) – all RouterOS vars stay literal.
+    $readClock =
+        ':local curH [:tonum [:pick [/system clock get time] 0 2]]; ' .
+        ':local curM [:tonum [:pick [/system clock get time] 3 5]]; ' .
+        ':local curSecs (($curH * 3600) + ($curM * 60)); ';
+
+    $kickUser =
+        ':log warning ("Window pass: $user denied - outside ' . $windowDesc . '"); ' .
+        '/ip hotspot active remove [find where user=$user]; ';
+
     if ($spansMidnight) {
-        // Window spans midnight (e.g., 18:00-05:00)
-        // User is allowed if: currentTime >= startTime OR currentTime < endTime
-        $script = <<<SCRIPT
-:put (",window,{$price},{$windowDesc},,,$spansMidnight,");
-{
-:local currentTime [/system clock get time];
-:local currentHour [:pick \$currentTime 0 2];
-:local currentMin [:pick \$currentTime 3 5];
-:local currentMinutes ((\$currentHour * 60) + \$currentMin);
-:local startMinutes {$startMinutes};
-:local endMinutes {$endMinutes};
-:local allowed false;
-:if (\$currentMinutes >= \$startMinutes) do={:set allowed true};
-:if (\$currentMinutes < \$endMinutes) do={:set allowed true};
-:if (\$allowed = false) do={
-  :log warning ("Time-window pass: \$user denied - outside window {$windowDesc}");
-  /ip hotspot active remove [find where user=\$user];
-} else={
-  :local endHour {$endHour};
-  :local endMin {$endMin};
-  :local schedTime ("\$endHour:\$endMin:00");
-  :local schedDate [/system clock get date];
-  :if (\$currentMinutes >= \$startMinutes) do={
-    :local tomorrow [/system clock get date];
-    :set schedDate \$tomorrow;
-  };
-  /system scheduler add name=("wnd_" . \$user) on-event=("/ip hotspot active remove [find where user=\$user]; /system scheduler remove [find where name=(\\\"wnd_\\\" . \\\"\$user\\\")]") start-time=\$schedTime interval=0 comment="Window pass auto-disconnect";
-  :log info ("Time-window pass: \$user allowed until {$endTime}");
-}
-}
-SCRIPT;
+        // Window crosses midnight (e.g. 18:00–06:00).
+        // User allowed if: curSecs >= startSecs  OR  curSecs < endSecs
+        return
+            $readClock .
+            ':local startSecs ' . $startSecs . '; ' .
+            ':local endSecs '   . $endSecs   . '; ' .
+            ':local allowed false; ' .
+            ':if ($curSecs >= $startSecs) do={ :set allowed true }; ' .
+            ':if ($curSecs < $endSecs) do={ :set allowed true }; ' .
+            ':if (!$allowed) do={ ' . $kickUser . '}';
     } else {
-        // Window within same day (e.g., 08:00-18:00)
-        // User is allowed if: startTime <= currentTime < endTime
-        $script = <<<SCRIPT
-:put (",window,{$price},{$windowDesc},,,$spansMidnight,");
-{
-:local currentTime [/system clock get time];
-:local currentHour [:pick \$currentTime 0 2];
-:local currentMin [:pick \$currentTime 3 5];
-:local currentMinutes ((\$currentHour * 60) + \$currentMin);
-:local startMinutes {$startMinutes};
-:local endMinutes {$endMinutes};
-:if (\$currentMinutes < \$startMinutes || \$currentMinutes >= \$endMinutes) do={
-  :log warning ("Time-window pass: \$user denied - outside window {$windowDesc}");
-  /ip hotspot active remove [find where user=\$user];
-} else={
-  :local endHour {$endHour};
-  :local endMin {$endMin};
-  :local schedTime ("\$endHour:\$endMin:00");
-  /system scheduler add name=("wnd_" . \$user) on-event=("/ip hotspot active remove [find where user=\$user]; /system scheduler remove [find where name=(\\\"wnd_\\\" . \\\"\$user\\\")]") start-time=\$schedTime interval=0 comment="Window pass auto-disconnect";
-  :log info ("Time-window pass: \$user allowed until {$endTime}");
-}
-}
-SCRIPT;
+        // Window within same day (e.g. 06:00–18:00).
+        // User allowed if: startSecs <= curSecs < endSecs
+        return
+            $readClock .
+            ':local startSecs ' . $startSecs . '; ' .
+            ':local endSecs '   . $endSecs   . '; ' .
+            ':if ($curSecs < $startSecs || $curSecs >= $endSecs) do={ ' . $kickUser . '}';
     }
-    
-    return $script;
 }
 
 /**
@@ -639,9 +661,10 @@ function getPackagesForJavaScript() {
     
     foreach ($PACKAGES as $pkg) {
         $packageData[$pkg['id']] = [
-            'id' => $pkg['id'],
-            'name' => $pkg['name'],
-            'data_limit_gb' => $pkg['data_limit_gb'] ?? 0
+            'id'             => $pkg['id'],
+            'name'           => $pkg['name'],
+            'data_limit_gb'  => $pkg['data_limit_gb'] ?? 0,
+            'profile_suffix' => $pkg['profile_suffix'] ?? null,
         ];
     }
     

@@ -98,7 +98,10 @@ try {
 
     // ── Add user to router ─────────────────────────────────────────────────
 
-    $limit_uptime = ($package['type'] === 'duration') ? $package['limit_uptime'] : '1d';
+    $limit_uptime = getPackageLimitUptime($package_id);
+    if (!$limit_uptime) {
+        $limit_uptime = '12h'; // Fallback
+    }
 
     // Remove stale/ghost account if it exists with no active session
     $util->setMenu('/ip/hotspot/active');
@@ -140,7 +143,7 @@ try {
     $package_name    = getPackageDisplayName($package_id);
     $package_type    = $package['type'];
     $expires_on      = getExpiryDate();
-    $db_limit_uptime = ($package['type'] === 'duration') ? $package['limit_uptime'] : '';
+    $db_limit_uptime = getPackageLimitUptime($package_id) ?? '';
 
     // Generate sequential booking_id (same logic as ajax_adduser.php)
     $stmtBk = $DB_con->prepare(

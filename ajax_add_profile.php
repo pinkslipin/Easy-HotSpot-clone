@@ -39,6 +39,10 @@ if (true) {
 	$on_expiry = in_array($on_expiry, ['rem', 'ntf', 'remc', 'ntfc', '0'], true) ? $on_expiry : '0';
 	$lock_user = in_array($lock_user, ['Enable', 'Disable'], true) ? $lock_user : 'Disable';
 	$shared_users = intval($shared_users);
+	// RouterOS duration format: combinations of w/d/h/m/s (e.g. "2m", "1d12h", "00:00:00")
+	$rosTime = '/^(\d+[wdhms])+$|^\d{2}:\d{2}:\d{2}$/';
+	$mac_cookie_timeout = preg_match($rosTime, trim($mac_cookie_timeout)) ? trim($mac_cookie_timeout) : '12h';
+	$keepalive_timeout  = preg_match($rosTime, trim($keepalive_timeout))  ? trim($keepalive_timeout)  : '2m';
 
 	$rate_limit = $rx_rate_limit.'/'.$tx_rate_limit;
 	if ($price == "") {$price = "0";}
@@ -68,44 +72,25 @@ if (true) {
 	$login_script .= $mac_bind;
 
 	if (!empty($profile_name)) {
-		
 			$util->setMenu('/ip hotspot user profile');
-			if(strtolower($session_timeout) == 'none') $session_timeout = '00:00:00';
+			if (strtolower($session_timeout) === 'none') $session_timeout = '00:00:00';
 			$util->add(
 				array(
-					'name' => "$profile_name",
-					'rate-limit' => "$rate_limit",
-					'shared-users' => "$shared_users",
+					'name'               => "$profile_name",
+					'rate-limit'         => "$rate_limit",
+					'session-timeout'    => "$session_timeout",
+					'shared-users'       => "$shared_users",
+					'mac-cookie-timeout' => "$mac_cookie_timeout",
+					'keepalive-timeout'  => "$keepalive_timeout",
 					'status-autorefresh' => "1m",
-					'transparent-proxy' => "yes",
-					'on-login' => "$login_script",
+					'transparent-proxy'  => "yes",
+					'on-login'           => "$login_script",
 				)
 			);
-			/* Old version
-			array(
-					'name' => "$profile_name",
-					'rate-limit' => "$rate_limit",
-					'session-timeout' => "$session_timeout",
-					'shared-users' => "$shared_users",
-					'mac-cookie-timeout' => "$mac_cookie_timeout",
-					'keepalive-timeout' => "$keepalive_timeout",
-					'status-autorefresh' => "1m",
-					'transparent-proxy' => "yes",
-					'on-login' => "$login_script",
-				)
-			*/	
-			/*
-			if(strtolower($session_timeout) == 'none') {
-				$id = $client->sendSync(new Request('/ip/hotspot/user/profile/print .proplist=.id', null, Query::where('name', $profile_name)))->getArgument('.id');
-				$util->setMenu('/ip hotspot user profile');
-				$util->unsetValue($id, 'session-timeout');
-			} */
 			echo 2; //Success
+		} else {
+			echo 1; //Profile name/Session Timeout Empty
 		}
-	else
-		{
-		echo 1; //Profile name/Session Timeout Empty
-	}
 }
 else
 	{

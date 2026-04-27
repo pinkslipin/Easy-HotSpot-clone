@@ -261,10 +261,13 @@
         $('#btn-walkin-cancel').on('click', hideWalkinForm);
         // Voucher form — Issue & Seat submit
         $('#btn-walkin-submit').on('click', submitWalkin);
-        // ── Auto-populate data limit by package selection ────────────────────
-        // When user selects a package, auto-fill the data limit from package config
-        // User can still manually override this value
+        // ── Auto-populate data limit and profile by package selection ────────
         $('#swf-package').on('change', updateDataLimitFromPackage);
+        // Clear the auto-profile badge when staff manually overrides the profile
+        $('#swf-profile').on('change', function () {
+            $(this).removeClass('profile-auto-selected');
+            $('#swf-profile-auto-badge').hide();
+        });
         // ────────────────────────────────────────────────────────────────────
         // Extend — open panel
         $('#btn-detail-extend').on('click', showExtendPanel);
@@ -317,15 +320,29 @@
     }
 
     /**
-     * Update the data limit field based on the current package selection.
-     * Called when form is shown or when package dropdown changes.
+     * Update the data limit and bandwidth profile fields based on the current
+     * package selection. Called when the form is shown or the package changes.
+     * Staff can still manually override both fields after auto-population.
      */
     function updateDataLimitFromPackage() {
         var selectedPackageId = $('#swf-package').val();
-        if (selectedPackageId && typeof PACKAGE_DATA !== 'undefined' && PACKAGE_DATA[selectedPackageId]) {
-            var packageInfo = PACKAGE_DATA[selectedPackageId];
-            var dataLimitGb = packageInfo.data_limit_gb;
-            $('#swf-limit-bytes').val(dataLimitGb);
+        if (!selectedPackageId || typeof PACKAGE_DATA === 'undefined' || !PACKAGE_DATA[selectedPackageId]) {
+            return;
+        }
+        var pkg = PACKAGE_DATA[selectedPackageId];
+
+        // Data limit
+        $('#swf-limit-bytes').val(pkg.data_limit_gb);
+
+        // Profile auto-selection for window packages
+        var suffix = pkg.profile_suffix || null;
+        var $profileSelect = $('#swf-profile');
+        if (suffix && $profileSelect.find('option[value="' + suffix + '"]').length) {
+            $profileSelect.val(suffix).addClass('profile-auto-selected');
+            $('#swf-profile-auto-badge').show();
+        } else {
+            $profileSelect.removeClass('profile-auto-selected');
+            $('#swf-profile-auto-badge').hide();
         }
     }
 

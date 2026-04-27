@@ -58,7 +58,7 @@ $pkg_info = getPackage($package_id);
 if (!$pkg_info) hjvFail('Invalid package selected.');
 
 $price = $pkg_info['price'];
-$limit_uptime = isset($pkg_info['limit_uptime']) ? $pkg_info['limit_uptime'] : '1h';
+$limit_uptime = getPackageLimitUptime($package_id);
 $limit_bytes = $data_limit_gb > 0 ? ($data_limit_gb * 1024 * 1024 * 1024) : 0;
 
 // ── Create router user on MikroTik ──────────────────────────────────────────

@@ -174,10 +174,15 @@ if (!empty($seat['voucher_username'])) {
             // ── Get user's limit-uptime from hotspot user list ─────────────
             $util->setMenu('/ip/hotspot/user');
             $rosUsers = $util->find('name', $seat['voucher_username']);
-            $limitSecs = 0;
+            $limitSecs      = 0;
+            $cumulativeSecs = 0; // uptime from all completed sessions (RouterOS user entry)
             if (!empty($rosUsers)) {
                 $limitStr  = $rosUsers[0]->getProperty('limit-uptime') ?? '';
                 $limitSecs = sdParseUptime($limitStr);
+                // Cumulative uptime across sessions (RouterOS tracks this on the user entry,
+                // not counting the current active session which is reported separately)
+                $cumStr         = $rosUsers[0]->getProperty('uptime') ?? '';
+                $cumulativeSecs = sdParseUptime($cumStr);
                 // Override with DB value if router value is absent
                 if ($limitSecs === 0 && !empty($seat['voucher_uptime'])) {
                     $limitSecs = sdParseUptime($seat['voucher_uptime']);
@@ -203,7 +208,8 @@ if (!empty($seat['voucher_username'])) {
                 }
                 if ($bestSession) {
                     $sessionSecs = $maxUptime;
-                    $leftSecs    = ($limitSecs > 0) ? max(0, $limitSecs - $sessionSecs) : null;
+                    // Subtract completed-session uptime AND current-session uptime from the limit
+                    $leftSecs    = ($limitSecs > 0) ? max(0, $limitSecs - $cumulativeSecs - $sessionSecs) : null;
 
                     $resp['is_online']      = true;
                     $resp['session_uptime'] = sdFmtSecs($sessionSecs);

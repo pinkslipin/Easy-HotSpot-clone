@@ -1,10 +1,20 @@
 <?php
 //Start Removing All Validity Expired Guest User Accounts
+
+// Allow invocation from Windows Task Scheduler / CLI without an HTTP session
+$isCli = (php_sapi_name() === 'cli');
+if ($isCli) {
+    chdir(__DIR__); // ensure relative require_once paths resolve correctly from CLI
+}
+
 require_once 'config.php';
 require_once 'security_helper.php';
-secure_session_start();
-require_user();
-csrf_require();
+
+if (!$isCli) {
+    secure_session_start();
+    require_user();
+    csrf_require();
+}
 
 if (true) {	
 	
@@ -18,6 +28,9 @@ if (true) {
 	} else {
 		// Real router mode - using modern library (RouterOS 6.43+/7.x compatible)
 		require_once 'routeros_api.php';
+		require_once 'dbconfig.php';
+		require_once 'packages_config.php';
+
 		$connection = createRouterConnection($host, $user, $pass);
 		if (!$connection['success']) {
 			echo "0";
@@ -73,7 +86,6 @@ if (true) {
 			}
 
 			// Update DB status to 'Expired' so dashboard counts are accurate
-			require_once 'dbconfig.php';
 			try {
 				$placeholders = implode(',', array_fill(0, count($expiredNames), '?'));
 				$stmt = $DB_con->prepare("UPDATE hotspot_vouchers SET status = 'Expired' WHERE user_name IN ($placeholders)");
@@ -83,7 +95,51 @@ if (true) {
 			}
 		}
 
-		echo $removeCount;
+		// ── Window package enforcement ────────────────────────────────────────
+		// Kick any active sessions whose time-window has ended.
+		// This backstops the RouterOS profile on-login script (which only fires
+		// at login) and catches users who were connected when the window closed.
+		$windowKickCount = 0;
+		try {
+			$nowSecs = (int)date('H') * 3600 + (int)date('i') * 60 + (int)date('s');
+			$wStmt = $DB_con->prepare(
+				"SELECT user_name, package_id FROM hotspot_vouchers
+				  WHERE status = 'Active' AND package_type = 'window'"
+			);
+			$wStmt->execute();
+			$windowVouchers = $wStmt->fetchAll(PDO::FETCH_ASSOC);
+
+			foreach ($windowVouchers as $v) {
+				$pkg = getPackage($v['package_id']);
+				if (!$pkg || $pkg['type'] !== 'window') continue;
+
+				list($sh, $sm) = explode(':', $pkg['window_start']);
+				list($eh, $em) = explode(':', $pkg['window_end']);
+				$wStart = (int)$sh * 3600 + (int)$sm * 60;
+				$wEnd   = (int)$eh * 3600 + (int)$em * 60;
+
+				$inWindow = ($pkg['spans_midnight'] ?? false)
+					? ($nowSecs >= $wStart || $nowSecs < $wEnd)   // e.g. 18:00–06:00
+					: ($nowSecs >= $wStart && $nowSecs < $wEnd);  // e.g. 06:00–18:00
+
+				if (!$inWindow) {
+					$util->setMenu('/ip/hotspot/active');
+					try {
+						$sessions = $util->find('user', $v['user_name']);
+						foreach ($sessions as $sess) {
+							$util->remove($sess->getProperty('.id'));
+							$windowKickCount++;
+						}
+					} catch (Exception $e) {
+						// Continue if a single kick fails
+					}
+				}
+			}
+		} catch (Exception $e) {
+			// Non-fatal: duration cleanup already succeeded
+		}
+
+		echo $removeCount + $windowKickCount;
 	}
 }
 //End Removing All Validity Expired Guest User Accounts

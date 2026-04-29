@@ -132,10 +132,16 @@ try {
                 $info = isset($userLimits[$activeUser]) ? $userLimits[$activeUser] : null;
 
                 if ($info && !empty($info['limit'])) {
+                    // Remaining = limit - max(cumulative, session). RouterOS user.uptime
+                    // refreshes lazily; for fresh users it lags at 0 and the live session
+                    // is the truth, while for long-running users it has caught up and
+                    // already includes the live session. Taking the max picks whichever
+                    // counter is more advanced and avoids both under- and over-counting.
                     $limitSecs   = parseRosTime2($info['limit']);
                     $accuSecs    = parseRosTime2($info['accu']);
                     $sharedSecs  = $maxSessionSecs[$activeUser];
-                    $remaining   = $limitSecs - $accuSecs - $sharedSecs;
+                    $usedSecs    = max($accuSecs, $sharedSecs);
+                    $remaining   = max(0, $limitSecs - $usedSecs);
                     $voucherLeft = fmtSecs2($remaining);
                     $expired     = ($remaining <= 0);
                 } else {

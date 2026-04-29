@@ -16,6 +16,7 @@ expireSeats($DB_con);
 
 // CSRF token for JS
 $csrf = csrf_token();
+$debug_enabled = (($_GET['debug'] ?? '') === '1');
 
 // Fetch bandwidth profiles from router for the walk-in voucher form
 $seat_profiles = [];
@@ -295,6 +296,10 @@ if (empty($seat_profiles)) {
 .detail-table td { font-size: 13px; padding: 5px 6px; vertical-align: middle; }
 .detail-table>tbody>tr>td, .detail-table>tbody>tr>th { border-top: 1px solid #f2f2f2; }
 
+/* Debug row (hidden unless enabled) */
+#dd-debug-row { display: none; }
+#dd-debug { font-size: 11px; color: #666; word-break: break-all; }
+
 /* Time-remaining chip */
 .time-chip {
     display      : inline-block;
@@ -380,6 +385,14 @@ if (empty($seat_profiles)) {
 
 <body>
 <div class="container seats-page">
+
+    <?php if ($debug_enabled): ?>
+        <div class="alert alert-info" style="margin-bottom:12px; font-size:12px;">
+            <strong>DEBUG MODE ACTIVE</strong><br>
+            File: <?= htmlspecialchars(__FILE__) ?><br>
+            mtime: <?= htmlspecialchars(date('Y-m-d H:i:s', filemtime(__FILE__))) ?>
+        </div>
+    <?php endif; ?>
 
     <!-- ── Page header ─────────────────────────────────────────────────────── -->
     <div class="seat-page-header no_print">
@@ -542,6 +555,10 @@ if (empty($seat_profiles)) {
                                 <tr id="dd-data-row">
                                     <th>Data Usage</th>
                                     <td id="dd-data">&mdash;</td>
+                                </tr>
+                                <tr id="dd-debug-row">
+                                    <th>Debug</th>
+                                    <td id="dd-debug">&mdash;</td>
                                 </tr>
                             </tbody>
                         </table>

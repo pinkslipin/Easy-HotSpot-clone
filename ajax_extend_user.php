@@ -90,19 +90,18 @@ try {
         extFail("User '$username' not found on router.");
     }
     
-    $userId = $users[0]->getProperty('.id');
-    $currentLimit = $users[0]->getProperty('limit-uptime') ?? '';
-    $sessionUptime = $users[0]->getProperty('session-uptime') ?? '';
-    
-    // Calculate remaining time and add extension
-    // remaining = max(0, limit - session_already_used)
-    // new_limit = session_already_used + remaining + extension
-    $limitSecs = parseUptime($currentLimit);
-    $sessionSecs = parseUptime($sessionUptime);
+    $userId           = $users[0]->getProperty('.id');
+    $currentLimit     = $users[0]->getProperty('limit-uptime') ?? '';
+    $currentLimitSecs = parseUptime($currentLimit);
+
+    // Extend means "add N minutes to their entitlement", not "reset clock".
+    // Customer's existing remaining time is preserved.
+    //   newLimit = currentLimit + extension
+    // Overrun-safe: if the customer used more than their limit before being
+    // kicked, they don't get a free re-grant of the overrun.
     $extensionSecs = $extend_mins * 60;
-    $remainingSecs = max(0, $limitSecs - $sessionSecs);
-    $newSecs = $sessionSecs + $remainingSecs + $extensionSecs;
-    $newLimit = secondsToRos($newSecs);
+    $newSecs       = $currentLimitSecs + $extensionSecs;
+    $newLimit      = secondsToRos($newSecs);
     
     // Update router
     $query = new \RouterOS\Query('/ip/hotspot/user/set');

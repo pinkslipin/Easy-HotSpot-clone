@@ -171,10 +171,20 @@ try {
     $oldVoucher = $vStmt->fetch(PDO::FETCH_ASSOC);
 
     // ── Compute remaining time ─────────────────────────────────────────────
-    $limit_secs   = $oldVoucher ? stParseUptime($oldVoucher['limit_uptime'] ?? '') : 0;
-    $session_secs = 0;
+    // Remaining = limit - max(cumulative, session). user.uptime refreshes lazily,
+    // so taking the max picks whichever counter is more advanced and avoids both
+    // under- and over-counting the time the customer has actually used.
+    $limit_secs       = $oldVoucher ? stParseUptime($oldVoucher['limit_uptime'] ?? '') : 0;
+    $cumulative_secs  = 0;
+    $session_secs     = 0;
 
     if (!$mock_mode && $util && $limit_secs > 0) {
+        $util->setMenu('/ip/hotspot/user');
+        $userList = $util->find('name', $old_username);
+        if (!empty($userList)) {
+            $cumulative_secs = stParseUptime($userList[0]->getProperty('uptime') ?? '');
+        }
+
         $util->setMenu('/ip/hotspot/active');
         $sessions = $util->find('user', $old_username);
         if (!empty($sessions)) {
@@ -185,7 +195,8 @@ try {
         }
     }
 
-    $remaining_secs = ($limit_secs > 0) ? max(60, $limit_secs - $session_secs) : 0;
+    $used_secs        = max($cumulative_secs, $session_secs);
+    $remaining_secs   = ($limit_secs > 0) ? max(60, $limit_secs - $used_secs) : 0;
     $new_limit_uptime = ($remaining_secs > 0) ? stSecondsToRos($remaining_secs) : ($oldVoucher['limit_uptime'] ?? '1h');
 
     // ── Create new router user with remaining time ─────────────────────────

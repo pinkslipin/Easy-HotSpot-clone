@@ -25,6 +25,8 @@
         transfer : 'ajax_seat_transfer.php',
     };
 
+    var DEBUG_MODE = /(?:^|[?&])debug=1/.test(window.location.search);
+
     // Zone display order (matches SQL ORDER BY FIELD)
     var ZONE_ORDER = ['Main Entrance', 'Inner Room', 'Conference Room', 'Private Room'];
 
@@ -42,6 +44,7 @@
     var refreshTimer  = null;
     var pendingSeatId = null;   // seat being acted on (for spinner)
     var seenSystemNotifs = {};  // de-dup server events across refresh ticks
+    var detailTicker  = null;   // live tick for modal Time Remaining / Session Uptime
 
     // ── Bootstrap: launch ─────────────────────────────────────────────────────
     $(document).ready(function () {
@@ -357,6 +360,7 @@
         hideWalkinForm();
         hideExtendPanel();
         hideTransferPanel();
+        stopDetailTicker();
         $('#seat-detail-panel').hide();
         $('#seat-detail-content').hide();
         $('#seat-detail-loading').show();
@@ -470,6 +474,75 @@
     }
 
     /**
+     * Format a duration in seconds as "1h 23m 45s" (matches sdFmtSecs in PHP).
+     */
+    function fmtSecsLive(secs) {
+        if (secs <= 0) return '0s';
+        var h = Math.floor(secs / 3600);
+        var m = Math.floor((secs % 3600) / 60);
+        var s = secs % 60;
+        var out = '';
+        if (h)        out += h + 'h ';
+        if (m || h)   out += m + 'm ';
+        out += s + 's';
+        return out.trim();
+    }
+
+    function timeChipClass(secs) {
+        if (secs === null) return 'time-chip-na';
+        if (secs > 1800)   return 'time-chip-ok';
+        if (secs > 600)    return 'time-chip-warn';
+        return 'time-chip-crit';
+    }
+
+    /**
+     * Start ticking Session Uptime up and Time Remaining down once per second
+     * while the modal is open and the session is live. Stops via stopDetailTicker().
+     */
+    function startDetailTicker(timeLeftSecs, sessionUptimeSecs, isOnline) {
+        stopDetailTicker();
+        if (!isOnline) return;
+
+        var normalizedTimeLeftSecs = (timeLeftSecs !== null && timeLeftSecs !== undefined)
+            ? Number(timeLeftSecs)
+            : null;
+        if (normalizedTimeLeftSecs !== null && Number.isNaN(normalizedTimeLeftSecs)) {
+            normalizedTimeLeftSecs = null;
+        }
+
+        var normalizedSessionUptimeSecs = (sessionUptimeSecs !== null && sessionUptimeSecs !== undefined)
+            ? Number(sessionUptimeSecs)
+            : null;
+        if (normalizedSessionUptimeSecs !== null && Number.isNaN(normalizedSessionUptimeSecs)) {
+            normalizedSessionUptimeSecs = null;
+        }
+
+        var startedAt = Date.now();
+        detailTicker = setInterval(function () {
+            var elapsed = Math.floor((Date.now() - startedAt) / 1000);
+
+            if (normalizedSessionUptimeSecs !== null) {
+                $('#dd-session-uptime').text(fmtSecsLive(normalizedSessionUptimeSecs + elapsed));
+            }
+            if (normalizedTimeLeftSecs !== null) {
+                var left = Math.max(0, normalizedTimeLeftSecs - elapsed);
+                $('#dd-time-left').html(
+                    '<span class="time-chip ' + timeChipClass(left) + '\">' +
+                    escHtml(fmtSecsLive(left)) + '</span>'
+                );
+                if (left === 0) stopDetailTicker();
+            }
+        }, 1000);
+    }
+
+    function stopDetailTicker() {
+        if (detailTicker) {
+            clearInterval(detailTicker);
+            detailTicker = null;
+        }
+    }
+
+    /**
      * Populate the detail panel with the data returned by ajax_seat_detail.php.
      */
     function renderDetailPanel(d) {
@@ -568,6 +641,20 @@
         // Reveal content, hide loader
         $('#seat-detail-loading').hide();
         $('#seat-detail-content').show();
+
+        if (DEBUG_MODE) {
+            $('#dd-debug-row').show();
+            $('#dd-debug').text(
+                'time_left_secs=' + d.time_left_secs +
+                ' | session_uptime_secs=' + d.session_uptime_secs +
+                ' | time_left_fmt=' + (d.time_left_fmt || '')
+            );
+        } else {
+            $('#dd-debug-row').hide();
+        }
+
+        // Live tick the Session Uptime / Time Remaining values
+        startDetailTicker(d.time_left_secs, d.session_uptime_secs, d.is_online);
     }
 
     /** Format a PHP float price as a local currency string (mirrors formatPrice()). */

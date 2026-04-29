@@ -160,7 +160,8 @@ if (!empty($seat['voucher_username'])) {
             $limitSecs   = sdParseUptime($seat['voucher_uptime']);
             $sessionSecs = sdParseUptime('0h23m14s');
             $leftSecs    = max(0, $limitSecs - $sessionSecs);
-            $resp['time_left_secs']  = $leftSecs;
+            $resp['session_uptime_secs'] = (int)$sessionSecs;
+            $resp['time_left_secs']  = (int)$leftSecs;
             $resp['time_left_fmt']   = sdFmtSecs($leftSecs);
             $resp['finish_time_fmt'] = sdFmtFinish($leftSecs);
         }
@@ -208,12 +209,18 @@ if (!empty($seat['voucher_username'])) {
                 }
                 if ($bestSession) {
                     $sessionSecs = $maxUptime;
-                    // Subtract completed-session uptime AND current-session uptime from the limit
-                    $leftSecs    = ($limitSecs > 0) ? max(0, $limitSecs - $cumulativeSecs - $sessionSecs) : null;
+                    // Remaining = limit - max(cumulative, session). RouterOS user.uptime
+                    // refreshes lazily; for fresh users it lags at 0 and the live session
+                    // is the truth, while for long-running users it has caught up and
+                    // already includes the live session. Taking the max picks whichever
+                    // counter is more advanced and avoids both under- and over-counting.
+                    $usedSecs = max($cumulativeSecs, $sessionSecs);
+                    $leftSecs = ($limitSecs > 0) ? max(0, $limitSecs - $usedSecs) : null;
 
                     $resp['is_online']      = true;
                     $resp['session_uptime'] = sdFmtSecs($sessionSecs);
-                    $resp['time_left_secs']  = $leftSecs;
+                    $resp['session_uptime_secs'] = (int)$sessionSecs;
+                    $resp['time_left_secs']  = ($leftSecs !== null) ? (int)$leftSecs : null;
                     $resp['time_left_fmt']   = ($leftSecs !== null) ? sdFmtSecs($leftSecs) : null;
                     $resp['finish_time_fmt'] = ($leftSecs !== null) ? sdFmtFinish($leftSecs) : null;
                     $resp['ip_address']     = $bestSession->getProperty('address')   ?? null;
@@ -224,9 +231,15 @@ if (!empty($seat['voucher_username'])) {
                     $resp['bytes_out_fmt'] = sdFmtBytes($bytesOut);
                 }
             } else {
-                // User has a voucher but isn't actively connected right now
+                // User has a voucher but isn't actively connected right now.
+                // Show what they have left based on cumulative usage so the modal
+                // doesn't display the full original limit as if unused.
+                $offlineLeftSecs = ($limitSecs > 0) ? max(0, $limitSecs - $cumulativeSecs) : 0;
                 $resp['is_online']     = false;
-                $resp['time_left_fmt'] = ($limitSecs > 0) ? sdFmtSecs($limitSecs) . ' (not connected)' : null;
+                $resp['time_left_fmt'] = ($limitSecs > 0)
+                    ? sdFmtSecs($offlineLeftSecs) . ' (not connected)'
+                    : null;
+                $resp['time_left_secs'] = ($limitSecs > 0) ? (int)$offlineLeftSecs : null;
             }
         }
     }

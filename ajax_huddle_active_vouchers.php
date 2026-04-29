@@ -124,14 +124,17 @@ try {
         $activeData = $activeUsers[$username];
         $limitData = $userLimits[$username] ?? null;
         
-        // Calculate remaining time
+        // Remaining = limit - max(cumulative, session). user.uptime refreshes lazily
+        // (lags at 0 for fresh users, includes live session for long-running ones);
+        // taking the max picks whichever counter is more advanced.
         if ($limitData && !empty($limitData['limit'])) {
-            $limitSecs = parseRosTime($limitData['limit']);
-            $accuSecs = parseRosTime($limitData['accu']);
+            $limitSecs   = parseRosTime($limitData['limit']);
+            $accuSecs    = parseRosTime($limitData['accu']);
             $sessionSecs = $activeData['sessionSecs'];
-            $remaining = $limitSecs - $accuSecs - $sessionSecs;
+            $usedSecs    = max($accuSecs, $sessionSecs);
+            $remaining   = max(0, $limitSecs - $usedSecs);
             $voucherLeft = fmtSecs($remaining);
-            $expired = ($remaining <= 0);
+            $expired     = ($remaining <= 0);
         } else {
             $voucherLeft = 'Unlimited';
             $expired = false;

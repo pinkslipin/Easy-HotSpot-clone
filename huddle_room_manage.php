@@ -286,7 +286,11 @@ $upcoming_bookings = $todayStmt->fetchAll(PDO::FETCH_ASSOC);
                     </div>
                     
                     <div class="modal-form-group">
-                        <label>Bandwidth Profile</label>
+                        <label for="voucher-profile">Bandwidth Profile
+                            <span id="voucher-profile-auto-badge"
+                                  class="label label-info"
+                                  style="display:none; font-size:10px; margin-left:4px; vertical-align:middle;">auto</span>
+                        </label>
                         <select id="voucher-profile" name="voucher-profile">
                             <?php foreach ($bandwidth_profiles as $profile): ?>
                                 <option value="<?= htmlspecialchars($profile) ?>"><?= htmlspecialchars($profile) ?></option>
@@ -662,16 +666,31 @@ function openCheckinModal(bookingId, occupancy, price) {
 
 /**
  * Update data limit field based on currently selected package.
+ * Also auto-selects the matching bandwidth profile when the package
+ * declares a profile_suffix (window passes + new semantic duration profiles).
  * Called when modal opens or when package dropdown changes.
  */
 function updateDataLimitFromPackage() {
     const selectedPackageId = $('#voucher-package').val();
-    if (selectedPackageId && PACKAGE_DATA[selectedPackageId]) {
-        const packageInfo = PACKAGE_DATA[selectedPackageId];
-        const dataLimitGb = packageInfo.data_limit_gb;
-        $('#voucher-data-limit').val(dataLimitGb);
+    if (!selectedPackageId || !PACKAGE_DATA[selectedPackageId]) return;
+
+    const packageInfo = PACKAGE_DATA[selectedPackageId];
+    $('#voucher-data-limit').val(packageInfo.data_limit_gb);
+
+    const suffix = packageInfo.profile_suffix || null;
+    const $profileSelect = $('#voucher-profile');
+    if (suffix && $profileSelect.find('option[value="' + suffix + '"]').length) {
+        $profileSelect.val(suffix);
+        $('#voucher-profile-auto-badge').show();
+    } else {
+        $('#voucher-profile-auto-badge').hide();
     }
 }
+
+// Manual profile change clears the auto badge
+$(document).on('change', '#voucher-profile', function () {
+    $('#voucher-profile-auto-badge').hide();
+});
 
 function updatePriceDisplay() {
     const finalOccupancy = parseInt($('#final-occupancy').val()) || originalOccupancy;
